@@ -13,13 +13,6 @@ float tau = 0.6;			// collision timescale
 int iterations = 10;		// number of iteratinos to run
 // dx = 1, dt = 1, c_s = 1 assumed throughout
 
-// weights
-float wi[Q] = { 4/9, 1/9, 1/9, 1/9, 1/9, 1/36, 1/36, 1/36, 1/36 };
-
-// neighbour nodes
-int ex[Q] = { 0, 1, 0, -1,  0, 1, -1, -1,  1 };
-int ey[Q] = { 0, 0, 1,  0, -1, 1,  1, -1, -1 };
-
 // allocate grid
 float* f =     new float[Nx * Ny * Q];
 float* ftemp = new float[Nx * Ny * Q];

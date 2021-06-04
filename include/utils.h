@@ -2,7 +2,7 @@
 
 #include <sstream>
 #include <fstream>
-#include <cmath>
+#include <math.h>
 
 
 /***********************************************************
@@ -21,7 +21,7 @@ void grid_to_file(int it, float* u_x, float* u_y, int rows, int columns)
 	{
 		for (int j = 0; j < columns; j++)
 		{
-			float vel = std::sqrt(u_x[i + columns*j] + u_y[i + columns*j]);
+			float vel = std::sqrt(u_x[i + columns*j]*u_x[i + columns*j] + u_y[i + columns*j]*u_y[i + columns*j]);
 			f1 << vel  << '\t';
 		}
 		f1 << '\n';
