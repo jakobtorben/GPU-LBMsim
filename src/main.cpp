@@ -1,21 +1,24 @@
 #include <iostream>
 #include <math.h>
 
-#include "core.h"
-#include "utils.h"
-#include "init.h"
+#include "core.hpp"
+#include "utils.hpp"
+#include "init.hpp"
 
 using namespace std;
 
 
 // define constants
-const int Nx = 300, Ny = 150;	// grid size
-const int Q = 9;			// number of velocity components 
-const float tau = 0.6;			// collision timescale
-const float ux0 = 1.;				// inital speed in x direction
-//const float cs2 = 1./3.;	// speed of sound**2 D2Q9
-const int iterations = 5000;		// number of iteratinos to run
 // dx = 1, dt = 1, c = 1 assumed throughout
+const int Nx = 300, Ny = 150;	// grid size
+const int Q = 9;			    // number of velocity components
+const float reynolds = 5.;
+const float kin_visc = 0.015;				// Kinematic viscosity
+const float ux0 = reynolds*kin_visc / float(Ny-1); // inital speed in x direction
+const float cs = sqrt(1./3.);	    // speed of sound**2 D2Q9
+const float mach = ux0 / cs;
+const float tau = (3. * kin_visc + 0.5); // collision timescale	
+const int iterations = 15000;	// number of iteratinos to run
 
 
 
@@ -36,11 +39,20 @@ float* rho        = new float[Nx * Ny];
 
 int main()
 {
+
+	// print constants
+	cout << "Reynolds number: " << reynolds << endl;
+	cout << "kinematic viscosity: " << kin_visc << endl;
+	cout << "ux0: " << ux0 << endl;
+	cout << "mach number: " << mach << endl;
+	cout << "tau : " << tau << endl;
+
+
 	// defines geometry
 	read_geometry(Nx, Ny, solid_node);
 
 	// apply initial conditions - flow to the rigth
-	initialise(Nx, Ny, Q, f, ftemp, rho, u_x, u_y);
+	initialise(Nx, Ny, Q, ux0, f, ftemp, rho, u_x, u_y);
 
 
 	// simulation main loop
@@ -61,7 +73,7 @@ int main()
 		collide(Nx, Ny, Q, f, ftemp, feq, solid_node, tau);
 
 
-		if (it % 50 == 0)
+		if (it % 100 == 0)
 		{
 			cout << "iteration: " << it << "\toutput: " << out_cnt << endl;
 			write_to_file(out_cnt, u_x, u_y, Nx, Ny);

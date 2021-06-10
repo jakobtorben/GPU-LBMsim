@@ -2,7 +2,7 @@
 #include <fstream>
 #include <math.h>
 
-#include "utils.h"
+#include "utils.hpp"
 
 /***********************************************************
 *  **Function**: grid_to_file\n

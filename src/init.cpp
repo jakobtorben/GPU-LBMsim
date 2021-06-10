@@ -1,6 +1,6 @@
 #include <cmath>
 
-#include "init.h"
+#include "init.hpp"
 
 
 // this will later read in a predefined mask
@@ -8,7 +8,7 @@ void read_geometry(int Nx, int Ny, bool* solid_node)
 {
 	// define geometry
 	const int cx = 75, cy = 75;
-	const int radius = 50;
+	const int radius = 30;
 	for (int j = 0; j < Ny; j++)
 		for (int i = 0; i < Nx; i++)
 		{
@@ -22,14 +22,15 @@ void read_geometry(int Nx, int Ny, bool* solid_node)
 		}
 }
 
-void initialise(int Nx, int Ny, int Q, float* f, float* ftemp, float* rho, float* u_x, float* u_y)
+// apply initial conditions - flow to the rigth
+void initialise(int Nx, int Ny, int Q, float ux0, float* f, float* ftemp, float* rho, float* u_x, float* u_y)
 {
 	for (int j = 0; j < Ny; j++)
 		for (int i = 0; i < Nx; i++)
 		{
 			int pos = i + Nx*j;
 			rho[pos] = 1.;
-			u_x[pos] = 1.;
+			u_x[pos] = ux0;
 			u_y[pos] = 0.;
 		}
 
