@@ -10,9 +10,9 @@ using namespace std;
 
 // define constants
 // dx = 1, dt = 1, c = 1 assumed throughout
-const int Nx = 300, Ny = 150;	// grid size
+const int Nx = 600, Ny = 300;	// grid size
 const int Q = 9;			    // number of velocity components
-const float reynolds = 5.;
+const float reynolds = 100.;
 const float kin_visc = 0.015;				// Kinematic viscosity
 const float ux0 = reynolds*kin_visc / float(Ny-1); // inital speed in x direction
 const float cs = sqrt(1./3.);	    // speed of sound**2 D2Q9
@@ -73,7 +73,7 @@ int main()
 		collide(Nx, Ny, Q, f, ftemp, feq, solid_node, tau);
 
 
-		if (it % 100 == 0)
+		if (it > 10000 && it % 100 == 0)
 		{
 			cout << "iteration: " << it << "\toutput: " << out_cnt << endl;
 			write_to_file(out_cnt, u_x, u_y, Nx, Ny);

@@ -7,8 +7,8 @@
 void read_geometry(int Nx, int Ny, bool* solid_node)
 {
 	// define geometry
-	const int cx = 75, cy = 75;
-	const int radius = 30;
+	const int cx = 150, cy = 150;
+	const int radius = 50;
 	for (int j = 0; j < Ny; j++)
 		for (int i = 0; i < Nx; i++)
 		{
