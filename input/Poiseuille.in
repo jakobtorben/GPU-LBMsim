@@ -1,0 +1,6 @@
+Nx = 600;
+Ny = 300;	// grid size
+Q = 9;			    // number of velocity components
+reynolds = 100.;
+kin_visc = 0.1667;				// Kinematic viscosity
+iterations = 5000;	// number of iteratinos to run
