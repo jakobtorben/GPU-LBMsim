@@ -16,7 +16,7 @@ void read_geometry(int Nx, int Ny, bool* solid_node)
 			float dx = std::abs(cx - i);
 			float dy = std::abs(cy - j);
 			float dist = std::sqrt(dx*dx + dy*dy);
-			solid_node[pos] = (dist < radius) ? 1 : 0;
+			solid_node[pos] = (dist < radius) ? 0 : 0;
 			if (j == 0 || j == Ny-1)
 				solid_node[pos] = 1;
 		}

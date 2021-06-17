@@ -1,4 +1,5 @@
 #include <iostream>
+#include <string>
 #include <math.h>
 
 #include "core.hpp"
@@ -8,37 +9,43 @@
 using namespace std;
 
 
-// define constants
-// dx = 1, dt = 1, c = 1 assumed throughout
-const int Nx = 600, Ny = 300;	// grid size
-const int Q = 9;			    // number of velocity components
-const float reynolds = 100.;
-const float kin_visc = 0.015;				// Kinematic viscosity
-const float ux0 = reynolds*kin_visc / float(Ny-1); // inital speed in x direction
-const float cs = sqrt(1./3.);	    // speed of sound**2 D2Q9
-const float mach = ux0 / cs;
-const float tau = (3. * kin_visc + 0.5); // collision timescale	
-const int iterations = 15000;	// number of iteratinos to run
 
 
 
-// velocity components
-const int ex[Q] = { 0, 1, 0, -1,  0, 1, -1, -1,  1 };
-const int ey[Q] = { 0, 0, 1,  0, -1, 1,  1, -1, -1 };
-
-// allocate grid
-float* f          = new float[Nx * Ny * Q];
-float* ftemp      = new float[Nx * Ny * Q];
-float* feq        = new float[Nx * Ny * Q];
-
-bool*  solid_node = new bool [Nx * Ny];
-float* u_x        = new float[Nx * Ny];
-float* u_y        = new float[Nx * Ny];
-float* rho        = new float[Nx * Ny];
-
-
-int main()
+int main(int argc, char* argv[])
 {
+    // define constants
+    // dx = 1, dt = 1, c = 1 assumed throughout
+    int Nx, Ny;	// grid size
+    int Q;			    // number of velocity components
+    float reynolds;
+    float kin_visc;				// Kinematic viscosity
+    int iterations;	// number of iteratinos to run
+
+    // TODO: write function to read in from file
+    string inputfile;
+    inputfile = argv[1];
+    if (inputfile == "Poiseuille.in")
+        #include "../input/Poiseuille.in"
+
+    float ux0 = reynolds*kin_visc / float(Ny-1); // inital speed in x direction
+    float cs = sqrt(1./3.);	    // speed of sound**2 D2Q9
+    float mach = ux0 / cs;
+    float tau = (3. * kin_visc + 0.5); // collision timescale	
+
+    // velocity components
+    const int ex[Q] = { 0, 1, 0, -1,  0, 1, -1, -1,  1 };
+    const int ey[Q] = { 0, 0, 1,  0, -1, 1,  1, -1, -1 };
+
+    // allocate grid
+    float* f          = new float[Nx * Ny * Q];
+    float* ftemp      = new float[Nx * Ny * Q];
+    float* feq        = new float[Nx * Ny * Q];
+
+    bool*  solid_node = new bool [Nx * Ny];
+    float* u_x        = new float[Nx * Ny];
+    float* u_y        = new float[Nx * Ny];
+    float* rho        = new float[Nx * Ny];
 
 	// print constants
 	cout << "Reynolds number: " << reynolds << endl;
@@ -73,7 +80,7 @@ int main()
 		collide(Nx, Ny, Q, f, ftemp, feq, solid_node, tau);
 
 
-		if (it > 10000 && it % 100 == 0)
+		if (it > iterations*0.9 && it % 100 == 0)
 		{
 			cout << "iteration: " << it << "\toutput: " << out_cnt << endl;
 			write_to_file(out_cnt, u_x, u_y, Nx, Ny);
