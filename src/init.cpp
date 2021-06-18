@@ -29,6 +29,7 @@ void initialise(int Nx, int Ny, int Q, float ux0, float* f, float* ftemp, float*
 		for (int i = 0; i < Nx; i++)
 		{
 			int pos = i + Nx*j;
+            // set density to 1.0 to keep as much precision as possible during calculation
 			rho[pos] = 1.;
 			u_x[pos] = ux0;
 			u_y[pos] = 0.;
@@ -40,6 +41,7 @@ void initialise(int Nx, int Ny, int Q, float ux0, float* f, float* ftemp, float*
 			int pos = i + Nx*j;
 			for (int a = 0; a < Q; a++)
 			{
+                // set higher number of particles travelling to the right
 				f[Q*pos + a] = (a == 1) ? 2 : 1;
 				ftemp[pos*Q + a] = f[pos*Q + a];
 			}

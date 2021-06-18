@@ -38,7 +38,6 @@ void write_to_file(int it, float* u_x, float* u_y, int Nx, int Ny)
 		for (int i = 0; i < Nx; i++)
 		{
 			int pos = i + Nx*j;
-			//float vel = std::sqrt(u_x[i + columns*j]*u_x[i + columns*j] + u_y[i + columns*j]*u_y[i + columns*j]);
 			f1 << u_x[pos] << " " << u_y[pos] << " 0.0 \n";
 		}
 	}

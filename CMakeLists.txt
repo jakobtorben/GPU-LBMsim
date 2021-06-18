@@ -19,6 +19,7 @@ enable_testing()
 add_subdirectory(src)
 add_subdirectory(tests)
 include_directories(include)
+file(MAKE_DIRECTORY build/out ${directory})
 #add_subdirectory(doc)
 
 

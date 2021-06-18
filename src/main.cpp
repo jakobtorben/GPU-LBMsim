@@ -17,7 +17,6 @@ int main(int argc, char* argv[])
     // define constants
     // dx = 1, dt = 1, c = 1 assumed throughout
     int Nx, Ny;	// grid size
-    int Q;			    // number of velocity components
     float reynolds;
     float kin_visc;				// Kinematic viscosity
     int iterations;	// number of iteratinos to run
@@ -28,6 +27,7 @@ int main(int argc, char* argv[])
     if (inputfile == "Poiseuille.in")
         #include "../input/Poiseuille.in"
 
+	const int Q = 9;			    // number of velocity components
     float ux0 = reynolds*kin_visc / float(Ny-1); // inital speed in x direction
     float cs = sqrt(1./3.);	    // speed of sound**2 D2Q9
     float mach = ux0 / cs;
@@ -36,6 +36,14 @@ int main(int argc, char* argv[])
     // velocity components
     const int ex[Q] = { 0, 1, 0, -1,  0, 1, -1, -1,  1 };
     const int ey[Q] = { 0, 0, 1,  0, -1, 1,  1, -1, -1 };
+
+	// print constants
+	cout << "Nx: " << Nx << " Ny: " << Ny << endl;
+	cout << "Reynolds number: " << reynolds << endl;
+	cout << "kinematic viscosity: " << kin_visc << endl;
+	cout << "ux0: " << ux0 << endl;
+	cout << "mach number: " << mach << endl;
+	cout << "tau : " << tau << endl;
 
     // allocate grid
     float* f          = new float[Nx * Ny * Q];
@@ -46,13 +54,6 @@ int main(int argc, char* argv[])
     float* u_x        = new float[Nx * Ny];
     float* u_y        = new float[Nx * Ny];
     float* rho        = new float[Nx * Ny];
-
-	// print constants
-	cout << "Reynolds number: " << reynolds << endl;
-	cout << "kinematic viscosity: " << kin_visc << endl;
-	cout << "ux0: " << ux0 << endl;
-	cout << "mach number: " << mach << endl;
-	cout << "tau : " << tau << endl;
 
 
 	// defines geometry
