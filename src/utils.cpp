@@ -1,3 +1,4 @@
+#include <iostream>
 #include <sstream>
 #include <fstream>
 #include <math.h>
@@ -42,4 +43,12 @@ void write_to_file(int it, float* u_x, float* u_y, int Nx, int Ny)
 		}
 	}
 	f1.close();
+}
+
+// read simulation inputs from file
+void read_input(std::string fname, input_struct& input)
+{
+	std::fstream file(fname, std::ios_base::in);
+	std::string tmp;  // to read in throwaway varaible name
+	file >> tmp >> input.Nx >> tmp >> input.Ny >> tmp >> input.reynolds >> tmp >> input.kin_visc >> tmp >> input.iterations;
 }

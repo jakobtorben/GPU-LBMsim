@@ -10,28 +10,25 @@ using namespace std;
 
 
 
-
-
 int main(int argc, char* argv[])
 {
     // define constants
     // dx = 1, dt = 1, c = 1 assumed throughout
-    int Nx, Ny;	// grid size
-    float reynolds;
-    float kin_visc;				// Kinematic viscosity
-    int iterations;	// number of iteratinos to run
 
-    // TODO: write function to read in from file
+    // Read simulation inputs from file
     string inputfile;
+	input_struct input;
     inputfile = argv[1];
-    if (inputfile == "Poiseuille.in")
-        #include "../input/Poiseuille.in"
+	read_input(inputfile, input);
 
 	const int Q = 9;			    // number of velocity components
-    float ux0 = reynolds*kin_visc / float(Ny-1); // inital speed in x direction
-    float cs = sqrt(1./3.);	    // speed of sound**2 D2Q9
-    float mach = ux0 / cs;
-    float tau = (3. * kin_visc + 0.5); // collision timescale	
+	const int Nx = input.Nx;		// grid size x-direction
+	const int Ny = input.Ny;		// grid size y-direction
+    float cs = sqrt(1./3.);			// speed of sound**2 D2Q9
+	// inital speed in x direction
+	float ux0 = input.reynolds*input.kin_visc / float(Ny-1);
+    float mach = ux0 / cs;			// mach number
+    float tau = (3. * input.kin_visc + 0.5); // collision timescale	
 
     // velocity components
     const int ex[Q] = { 0, 1, 0, -1,  0, 1, -1, -1,  1 };
@@ -39,8 +36,8 @@ int main(int argc, char* argv[])
 
 	// print constants
 	cout << "Nx: " << Nx << " Ny: " << Ny << endl;
-	cout << "Reynolds number: " << reynolds << endl;
-	cout << "kinematic viscosity: " << kin_visc << endl;
+	cout << "Reynolds number: " << input.reynolds << endl;
+	cout << "kinematic viscosity: " << input.kin_visc << endl;
 	cout << "ux0: " << ux0 << endl;
 	cout << "mach number: " << mach << endl;
 	cout << "tau : " << tau << endl;
@@ -65,7 +62,7 @@ int main(int argc, char* argv[])
 
 	// simulation main loop
 	int it = 0, out_cnt = 0;
-	while (it < iterations)
+	while (it < input.iterations)
 	{
 
 		// streaming step - periodic boundary conditions
@@ -81,7 +78,7 @@ int main(int argc, char* argv[])
 		collide(Nx, Ny, Q, f, ftemp, feq, solid_node, tau);
 
 
-		if (it > iterations*0.9 && it % 100 == 0)
+		if (it > input.iterations*0.9 && it % 100 == 0)
 		{
 			cout << "iteration: " << it << "\toutput: " << out_cnt << endl;
 			write_to_file(out_cnt, u_x, u_y, Nx, Ny);

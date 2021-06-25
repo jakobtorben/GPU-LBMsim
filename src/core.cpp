@@ -119,7 +119,7 @@ void collide(int Nx, int Ny, int Q, float* f, float* ftemp, float* feq, bool* so
 			}
 			else
 			{
-				// bounceback boundary conditions
+				// mid-plane bounceback boundary conditions
 				f[Q*pos + 1] = ftemp[Q*pos + 3];
 				f[Q*pos + 2] = ftemp[Q*pos + 4];
 				f[Q*pos + 3] = ftemp[Q*pos + 1];
