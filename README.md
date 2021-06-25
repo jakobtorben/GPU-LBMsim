@@ -14,18 +14,28 @@ In this project a Lattice Boltzmann simulation is implemented for the purpose of
 
 
 ### Requirements
-C++11 compatible compiler
+- C++11 compatible compiler
+- CMake version 3.14 or newer
+
 
 
 ### Build and run simulation
 
-The code is simply built using make, running the following command in root
+The code is cross-platform compatible and is built using CMake. To build the code for Linux run the following commands in root
 
-`make`
+`mkdir build`
 
-after successfully building the code, the simulation defined in 'main.cpp' is executed with
+`cd build`
 
-`make run`
+`cmake ..`
+
+`make all`
+
+after successfully building the code, a suite of tests is run with 
+
+`make test`
+
+A script to run the Poiseuille flow validation is provided in the scripts directory.
 
 ### Visualisation
 The simulation outputs files in the vtk format that is readable by the open-source visualisation software ParaView, which is freely available [here](https://www.paraview.org/download/) 
@@ -37,12 +47,14 @@ Note that the code is not yet fully tested and validated, and that currently onl
 
 #### Flow past cylinder
 Parameters: 
-Nx = 600
-Ny = 300
-Kinematic viscosity = 0.015
+Nx = 60
+Ny = 20
+Kinematic viscosity = 0.1667
 
 ##### Reynolds number 5
-![Reynolds number 5](https://github.com/acse-2020/acse2020-acse9-finalreport-acse-jrt3817/blob/main/figures/flow_cylinder_Re5.png?raw=true)
+<img src="https://github.com/acse-2020/acse2020-acse9-finalreport-acse-jrt3817/blob/main/figures/Poiseuille_flow.png" width="600">
+
+<img src="https://github.com/acse-2020/acse2020-acse9-finalreport-acse-jrt3817/blob/main/figures/Poiseuille_flow_comparison.png" width="500">
 
 
 ### Admin
