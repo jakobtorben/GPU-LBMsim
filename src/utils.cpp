@@ -49,6 +49,15 @@ void write_to_file(int it, float* u_x, float* u_y, int Nx, int Ny)
 void read_input(std::string fname, input_struct& input)
 {
 	std::fstream file(fname, std::ios_base::in);
-	std::string tmp;  // to read in throwaway varaible name
-	file >> tmp >> input.Nx >> tmp >> input.Ny >> tmp >> input.reynolds >> tmp >> input.kin_visc >> tmp >> input.iterations;
+	std::string variable;  // to read varaible name
+	std::cout << "Reading inputs\n";
+	while (file >> variable)
+	{
+		if (variable == "Nx")         file >> input.Nx;
+		if (variable == "Ny")         file >> input.Ny;
+		if (variable == "reynolds")   file >> input.reynolds;
+		if (variable == "kin_visc")   file >> input.kin_visc;
+		if (variable == "iterations") file >> input.iterations;
+	}
+	file.close();
 }
