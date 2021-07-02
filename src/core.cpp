@@ -44,7 +44,7 @@ void stream(int Nx, int Ny, int Q, float* ftemp, float* f, bool* solid_node)
 			int in = (i>0) ? (i-1) : -1;
 			int ip = (i<Nx-1) ? (i+1) : -1;
 
-				                        ftemp[Q*(i  + Nx*j)     ] = f[Q*ij    ];
+				                      ftemp[Q*(i  + Nx*j)     ] = f[Q*ij    ];
 			if (ip != -1            ) ftemp[Q*(ip + Nx*j)  + 1] = f[Q*ij + 1];
 			if (jp != -1            ) ftemp[Q*(i  + Nx*jp) + 2] = f[Q*ij + 2];
 			if (in != -1            ) ftemp[Q*(in + Nx*j)  + 3] = f[Q*ij + 3];
