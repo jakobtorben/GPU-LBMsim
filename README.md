@@ -43,8 +43,6 @@ The simulation outputs files in the vtk format that is readable by the open-sour
 
 ### Validation
 
-Note that the code is not yet fully tested and validated, and that currently only periodic boundary conditions are implemented. The following results are more to demonstrate the output of the simulation.
-
 #### Poiseuille flow
 Parameters: 
 Nx = 60
