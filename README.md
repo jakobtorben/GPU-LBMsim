@@ -45,16 +45,31 @@ The simulation outputs files in the vtk format that is readable by the open-sour
 
 Note that the code is not yet fully tested and validated, and that currently only periodic boundary conditions are implemented. The following results are more to demonstrate the output of the simulation.
 
-#### Flow past cylinder
+#### Poiseuille flow
 Parameters: 
 Nx = 60
 Ny = 20
 Kinematic viscosity = 0.1667
 
-##### Reynolds number 5
 <img src="https://github.com/acse-2020/acse2020-acse9-finalreport-acse-jrt3817/blob/main/figures/Poiseuille_flow.png" width="600">
 
 <img src="https://github.com/acse-2020/acse2020-acse9-finalreport-acse-jrt3817/blob/main/figures/Poiseuille_flow_comparison.png" width="500">
+
+
+#### Flow past cylinder
+Parameters: 
+Nx = 300
+Ny = 200
+Iterations = 15000
+
+##### Reynolds number 5 and kinematic viscosity 0.1
+<img src="https://github.com/acse-2020/acse2020-acse9-finalreport-acse-jrt3817/blob/main/figures/flow_past_cylinder_Re5_Nx300_Ny200_kinvisc_0_1_it15000.png" width="600">
+
+##### Reynolds number 40 and kinematic viscosity 0.03
+<img src="https://github.com/acse-2020/acse2020-acse9-finalreport-acse-jrt3817/blob/main/figures/flow_past_cylinder_Re40_Nx300_Ny200_kinvisc_0_03_it15000.png" width="600">
+
+##### Reynolds number 100 and kinematic viscosity 0.03
+<img src="https://github.com/acse-2020/acse2020-acse9-finalreport-acse-jrt3817/blob/main/figures/flow_past_cylinder_Re100_Nx300_Ny200_kinvisc_0_03_it15000.png" width="600">
 
 
 ### Admin
