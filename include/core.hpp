@@ -1,6 +1,7 @@
 #pragma once
 
 void stream(int Nx, int Ny, int Q, float* ftemp, float* f, bool* solid_node);
+void boundary(int Nx, int Ny, int Q, float ux0, float* ftemp, float* f, bool* solid_node);
 void calc_macro_quant(int Nx, int Ny, int Q,
 	float* u_x, float* u_y,
 	float* rho, float* ftemp, bool* solid_node,

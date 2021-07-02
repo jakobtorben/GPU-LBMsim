@@ -38,8 +38,8 @@ void write_to_file(int it, float* u_x, float* u_y, int Nx, int Ny)
 	{
 		for (int i = 0; i < Nx; i++)
 		{
-			int pos = i + Nx*j;
-			f1 << u_x[pos] << " " << u_y[pos] << " 0.0 \n";
+			int ij = i + Nx*j;
+			f1 << u_x[ij] << " " << u_y[ij] << " 0.0 \n";
 		}
 	}
 	f1.close();

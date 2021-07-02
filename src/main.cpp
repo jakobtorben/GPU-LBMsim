@@ -12,9 +12,6 @@ using namespace std;
 
 int main(int argc, char* argv[])
 {
-    // define constants
-    // dx = 1, dt = 1, c = 1 assumed throughout
-
     // Read simulation inputs from file
     string inputfile;
 	input_struct input;
@@ -26,7 +23,7 @@ int main(int argc, char* argv[])
 	const int Ny = input.Ny;		// grid size y-direction
     float cs = sqrt(1./3.);			// speed of sound**2 D2Q9
 	// inital speed in x direction
-	float ux0 = input.reynolds*input.kin_visc / float(Ny-1);
+	float ux0 = input.reynolds*input.kin_visc / float(Ny/4-1);  // Ny/4 is diameter of cylinder
     float mach = ux0 / cs;			// mach number
     float tau = (3. * input.kin_visc + 0.5); // collision timescale	
 
@@ -59,14 +56,17 @@ int main(int argc, char* argv[])
 	// apply initial conditions - flow to the rigth
 	initialise(Nx, Ny, Q, ux0, f, ftemp, rho, u_x, u_y);
 
-
 	// simulation main loop
+	cout << "Running simulation...\n";
 	int it = 0, out_cnt = 0;
 	while (it < input.iterations)
 	{
 
-		// streaming step - periodic boundary conditions
+		// streaming step
 		stream(Nx, Ny, Q, ftemp, f, solid_node);
+
+		// enforces bounadry conditions
+		boundary(Nx, Ny, Q, ux0, ftemp, f, solid_node);
 
 		// calculate macroscopic quantities
 		calc_macro_quant(Nx, Ny, Q, u_x, u_y, rho, ftemp, solid_node, ex, ey);
@@ -77,8 +77,8 @@ int main(int argc, char* argv[])
 		// collision step
 		collide(Nx, Ny, Q, f, ftemp, feq, solid_node, tau);
 
-
-		if (it > input.iterations*0.9 && it % 100 == 0)
+		// write to file
+		if (it > input.iterations*0.9 && it % 200 == 0)
 		{
 			cout << "iteration: " << it << "\toutput: " << out_cnt << endl;
 			write_to_file(out_cnt, u_x, u_y, Nx, Ny);
