@@ -4,6 +4,7 @@ project(LBM_sim)
 
 # GoogleTest requires at least C++11
 set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_FLAGS "-O3")
 
 include(FetchContent)
 FetchContent_Declare(

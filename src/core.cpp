@@ -4,26 +4,26 @@
 // streaming step - periodic boundary conditions
 void stream_perdiodic(int Nx, int Ny, int Q, float* ftemp, float* f, bool* solid_node)
 {
-	for (int j = 0; j < Ny; j++)
+	for (int y = 0; y < Ny; y++)
 	{
-		int jn = (j>0   ) ? (j-1) : (Ny-1);
-		int jp = (j<Ny-1) ? (j+1) : (0   );
+		int yn = (y>0   ) ? (y-1) : (Ny-1);
+		int yp = (y<Ny-1) ? (y+1) : (0   );
 
-		for (int i = 0; i < Nx; i++)
+		for (int x = 0; x < Nx; x++)
 		{
-			int ij = i + Nx*j;
-			int in = (i>0   ) ? (i-1) : (Nx-1);
-			int ip = (i<Nx-1) ? (i+1) : (0   );
+			int cord = x + Nx*y;
+			int xn = (x>0   ) ? (x-1) : (Nx-1);
+			int xp = (x<Nx-1) ? (x+1) : (0   );
 			// can later skip this for interiour nodes
-			ftemp[Q*(i  + Nx*j     )] = f[Q*ij    ];
-			ftemp[Q*(ip + Nx*j)  + 1] = f[Q*ij + 1];
-			ftemp[Q*(i  + Nx*jp) + 2] = f[Q*ij + 2];
-			ftemp[Q*(in + Nx*j)  + 3] = f[Q*ij + 3];
-			ftemp[Q*(i  + Nx*jn) + 4] = f[Q*ij + 4];
-			ftemp[Q*(ip + Nx*jp) + 5] = f[Q*ij + 5];
-			ftemp[Q*(in + Nx*jp) + 6] = f[Q*ij + 6];
-			ftemp[Q*(in + Nx*jn) + 7] = f[Q*ij + 7];
-			ftemp[Q*(ip + Nx*jn) + 8] = f[Q*ij + 8];
+			ftemp[Q*(x  + Nx*y     )] = f[Q*cord  ];
+			ftemp[Q*(xp + Nx*y)  + 1] = f[Q*cord + 1];
+			ftemp[Q*(x  + Nx*yp) + 2] = f[Q*cord + 2];
+			ftemp[Q*(xn + Nx*y)  + 3] = f[Q*cord + 3];
+			ftemp[Q*(x  + Nx*yn) + 4] = f[Q*cord + 4];
+			ftemp[Q*(xp + Nx*yp) + 5] = f[Q*cord + 5];
+			ftemp[Q*(xn + Nx*yp) + 6] = f[Q*cord + 6];
+			ftemp[Q*(xn + Nx*yn) + 7] = f[Q*cord + 7];
+			ftemp[Q*(xp + Nx*yn) + 8] = f[Q*cord + 8];
 		}
 	}
 }
@@ -31,28 +31,28 @@ void stream_perdiodic(int Nx, int Ny, int Q, float* ftemp, float* f, bool* solid
 // streaming step - without periodic boundary condittions
 void stream(int Nx, int Ny, int Q, float* ftemp, float* f, bool* solid_node)
 {
-	for (int j = 0; j < Ny; j++)
+	for (int y = 0; y < Ny; y++)
 	{
 		// don't stream beyond boundary nodes
-		int jn = (j>0) ? (j-1) : -1;
-		int jp = (j<Ny-1) ? (j+1) : -1;
+		int yn = (y>0) ? (y-1) : -1;
+		int yp = (y<Ny-1) ? (y+1) : -1;
 
-		for (int i = 0; i < Nx; i++)
+		for (int x = 0; x < Nx; x++)
 		{
 			// TODO: skip this for interiour nodes
-			int ij = i + Nx*j;
-			int in = (i>0) ? (i-1) : -1;
-			int ip = (i<Nx-1) ? (i+1) : -1;
+			int cord = x + Nx*y;
+			int xn = (x>0) ? (x-1) : -1;
+			int xp = (x<Nx-1) ? (x+1) : -1;
 
-				                      ftemp[Q*(i  + Nx*j)     ] = f[Q*ij    ];
-			if (ip != -1            ) ftemp[Q*(ip + Nx*j)  + 1] = f[Q*ij + 1];
-			if (jp != -1            ) ftemp[Q*(i  + Nx*jp) + 2] = f[Q*ij + 2];
-			if (in != -1            ) ftemp[Q*(in + Nx*j)  + 3] = f[Q*ij + 3];
-			if (jn != -1            ) ftemp[Q*(i  + Nx*jn) + 4] = f[Q*ij + 4];
-			if (ip != -1 && jp != -1) ftemp[Q*(ip + Nx*jp) + 5] = f[Q*ij + 5];
-			if (in != -1 && jp != -1) ftemp[Q*(in + Nx*jp) + 6] = f[Q*ij + 6];
-			if (in != -1 && jn != -1) ftemp[Q*(in + Nx*jn) + 7] = f[Q*ij + 7];
-			if (ip != -1 && jn != -1) ftemp[Q*(ip + Nx*jn) + 8] = f[Q*ij + 8];
+				                      ftemp[Q*(x  + Nx*y)     ] = f[Q*cord    ];
+			if (xp != -1            ) ftemp[Q*(xp + Nx*y)  + 1] = f[Q*cord + 1];
+			if (yp != -1            ) ftemp[Q*(x  + Nx*yp) + 2] = f[Q*cord + 2];
+			if (xn != -1            ) ftemp[Q*(xn + Nx*y)  + 3] = f[Q*cord + 3];
+			if (yn != -1            ) ftemp[Q*(x  + Nx*yn) + 4] = f[Q*cord + 4];
+			if (xp != -1 && yp != -1) ftemp[Q*(xp + Nx*yp) + 5] = f[Q*cord + 5];
+			if (xn != -1 && yp != -1) ftemp[Q*(xn + Nx*yp) + 6] = f[Q*cord + 6];
+			if (xn != -1 && yn != -1) ftemp[Q*(xn + Nx*yn) + 7] = f[Q*cord + 7];
+			if (xp != -1 && yn != -1) ftemp[Q*(xp + Nx*yn) + 8] = f[Q*cord + 8];
 		}
 	}
 }
@@ -60,52 +60,52 @@ void stream(int Nx, int Ny, int Q, float* ftemp, float* f, bool* solid_node)
 void boundary(int Nx, int Ny, int Q, float ux0, float* ftemp, float* f, bool* solid_node)
 {
 	// velocity BCs on west-side (inlet) using Zou and He.
-	int i = 0;
-	for (int j = 1; j < Ny - 1; j++)
+	int x = 0;
+	for (int y = 1; y < Ny - 1; y++)
 	{
-		int ij = i + Nx*j;
-		float rho0 = (ftemp[Q*ij + 0] + ftemp[Q*ij + 2] + ftemp[Q*ij + 4]
-			+ 2.*(ftemp[Q*ij + 3] + ftemp[Q*ij + 7] + ftemp[Q*ij + 6])) / (1. - ux0);
+		int cord = x + Nx*y;
+		float rho0 = (ftemp[Q*cord + 0] + ftemp[Q*cord + 2] + ftemp[Q*cord + 4]
+			+ 2.*(ftemp[Q*cord + 3] + ftemp[Q*cord + 7] + ftemp[Q*cord + 6])) / (1. - ux0);
 		float ru = rho0*ux0;
-		ftemp[Q*ij + 1] = ftemp[Q*ij + 3] + (2./3.)*ru;
-		ftemp[Q*ij + 5] = ftemp[Q*ij + 7] + (1./6.)*ru - 0.5*(ftemp[Q*ij + 2]-ftemp[Q*ij + 4]);
-		ftemp[Q*ij + 8] = ftemp[Q*ij + 6] + (1./6.)*ru - 0.5*(ftemp[Q*ij + 4]-ftemp[Q*ij + 2]);
+		ftemp[Q*cord + 1] = ftemp[Q*cord + 3] + (2./3.)*ru;
+		ftemp[Q*cord + 5] = ftemp[Q*cord + 7] + (1./6.)*ru - 0.5*(ftemp[Q*cord + 2]-ftemp[Q*cord + 4]);
+		ftemp[Q*cord + 8] = ftemp[Q*cord + 6] + (1./6.)*ru - 0.5*(ftemp[Q*cord + 4]-ftemp[Q*cord + 2]);
 	}
 
-	// BCs at east-side (outlet) using extrapolation from previous node (Nx-2) in x-dirn
-	i = Nx-1;
-	for (int j = 0; j < Ny; j++)
+	// BCs at east-side (outlet) using extrapolation from previous node (Nx-2) xn x-dirn
+	x = Nx-1;
+	for (int y = 0; y < Ny; y++)
 	{
-		int ij = i + Nx*j;
-		ftemp[Q*ij + 0] = ftemp[Q*ij - Q + 0];
-		ftemp[Q*ij + 1] = ftemp[Q*ij - Q + 1];
-		ftemp[Q*ij + 2] = ftemp[Q*ij - Q + 2];
-		ftemp[Q*ij + 3] = ftemp[Q*ij - Q + 3];
-		ftemp[Q*ij + 4] = ftemp[Q*ij - Q + 4];
-		ftemp[Q*ij + 5] = ftemp[Q*ij - Q + 5];
-		ftemp[Q*ij + 6] = ftemp[Q*ij - Q + 6];
-		ftemp[Q*ij + 7] = ftemp[Q*ij - Q + 7];
-		ftemp[Q*ij + 8] = ftemp[Q*ij - Q + 8];
+		int cord = x + Nx*y;
+		ftemp[Q*cord + 0] = ftemp[Q*cord - Q + 0];
+		ftemp[Q*cord + 1] = ftemp[Q*cord - Q + 1];
+		ftemp[Q*cord + 2] = ftemp[Q*cord - Q + 2];
+		ftemp[Q*cord + 3] = ftemp[Q*cord - Q + 3];
+		ftemp[Q*cord + 4] = ftemp[Q*cord - Q + 4];
+		ftemp[Q*cord + 5] = ftemp[Q*cord - Q + 5];
+		ftemp[Q*cord + 6] = ftemp[Q*cord - Q + 6];
+		ftemp[Q*cord + 7] = ftemp[Q*cord - Q + 7];
+		ftemp[Q*cord + 8] = ftemp[Q*cord - Q + 8];
 	}
 
 	// bounceback at top wall
-	int j  = Ny - 1;
-	for (int i = 1; i < Nx - 1; i++)
+	int y  = Ny - 1;
+	for (int x = 1; x < Nx - 1; x++)
 	{
-		int ij = i + Nx*j;
-		ftemp[Q*ij + 4] = ftemp[Q*ij + 2];
-		ftemp[Q*ij + 7] = ftemp[Q*ij + 5];
-		ftemp[Q*ij + 8] = ftemp[Q*ij + 6];
+		int cord = x + Nx*y;
+		ftemp[Q*cord + 4] = ftemp[Q*cord + 2];
+		ftemp[Q*cord + 7] = ftemp[Q*cord + 5];
+		ftemp[Q*cord + 8] = ftemp[Q*cord + 6];
 	}
 
 	// bounceback at bottom wall
-	j = 0;
-	for (int i = 1; i < Nx - 1; i++)
+	y = 0;
+	for (int x = 1; x < Nx - 1; x++)
 	{
-		int ij = i + Nx*j;
-		ftemp[Q*ij + 2] = ftemp[Q*ij + 4];
-		ftemp[Q*ij + 5] = ftemp[Q*ij + 7];
-		ftemp[Q*ij + 6] = ftemp[Q*ij + 8];
+		int cord = x + Nx*y;
+		ftemp[Q*cord + 2] = ftemp[Q*cord + 4];
+		ftemp[Q*cord + 5] = ftemp[Q*cord + 7];
+		ftemp[Q*cord + 6] = ftemp[Q*cord + 8];
 	}
 
 	// corners need special treatment as we have extra unknown.
@@ -113,76 +113,76 @@ void boundary(int Nx, int Ny, int Q, float ux0, float* ftemp, float* f, bool* so
 	// palabos-forum.unige.ch/t/corner-nodes-2d-channel-boundary-condition-zou-he/577/5
 
 	// corner of south-west inlet
-	int ij = 0 + Nx*1; // extrapolate density from neighbour node
+	int cord = 0 + Nx*1; // extrapolate density from neighbour node
 	float loc_rho = 0.0;
 	for (int a = 0; a < Q; a++)
-		loc_rho += ftemp[Q*ij + a];
-	ij = 0 + Nx*0;
-	ftemp[Q*ij + 1] = ftemp[Q*ij + 3];
-	ftemp[Q*ij + 2] = ftemp[Q*ij + 4];
-	ftemp[Q*ij + 5] = ftemp[Q*ij + 7];
+		loc_rho += ftemp[Q*cord + a];
+	cord = 0 + Nx*0;
+	ftemp[Q*cord + 1] = ftemp[Q*cord + 3];
+	ftemp[Q*cord + 2] = ftemp[Q*cord + 4];
+	ftemp[Q*cord + 5] = ftemp[Q*cord + 7];
 	// f6 = 1/2 * (rho - (f0 + f1 + f2 + f3 + f4 + f5 + f7))
-	ftemp[Q*ij + 6] = 0.5*(loc_rho - ftemp[Q*ij]) - (ftemp[Q*ij + 1] + ftemp[Q*ij + 2] + ftemp[Q*ij + 5]);
-	ftemp[Q*ij + 8] = ftemp[Q*ij + 6];
+	ftemp[Q*cord + 6] = 0.5*(loc_rho - ftemp[Q*cord]) - (ftemp[Q*cord + 1] + ftemp[Q*cord + 2] + ftemp[Q*cord + 5]);
+	ftemp[Q*cord + 8] = ftemp[Q*cord + 6];
 
 
 	// 	corner of south-east outlet
-	ij = (Nx - 1) + Nx*1; //extrapolate neighbour density
+	cord = (Nx - 1) + Nx*1; //extrapolate neighbour density
 	loc_rho = 0.0;
 	for (int a = 0; a < Q; a++)
-		loc_rho += ftemp[Q*ij + a];
-	ij = (Nx-1) + Nx*0;
-	ftemp[Q*ij + 2] = ftemp[Q*ij + 4];
-	ftemp[Q*ij + 3] = ftemp[Q*ij + 1];
-	ftemp[Q*ij + 6] = ftemp[Q*ij + 8];
+		loc_rho += ftemp[Q*cord + a];
+	cord = (Nx-1) + Nx*0;
+	ftemp[Q*cord + 2] = ftemp[Q*cord + 4];
+	ftemp[Q*cord + 3] = ftemp[Q*cord + 1];
+	ftemp[Q*cord + 6] = ftemp[Q*cord + 8];
 	// f5 = 1/2 * (rho - (f0 + f1 + f2 + f3 + f4 + f6 + f8))
-	ftemp[Q*ij + 5] = 0.5*(loc_rho - ftemp[Q*ij]) - (ftemp[Q*ij + 2] + ftemp[Q*ij + 3] + ftemp[Q*ij + 6]);
-	ftemp[Q*ij + 7] = ftemp[Q*ij + 5];
+	ftemp[Q*cord + 5] = 0.5*(loc_rho - ftemp[Q*cord]) - (ftemp[Q*cord + 2] + ftemp[Q*cord + 3] + ftemp[Q*cord + 6]);
+	ftemp[Q*cord + 7] = ftemp[Q*cord + 5];
 
 
 	// corner of north-west inlet
-	ij = 0 + Nx*(Ny - 2);  // extrapolate neighbour density
+	cord = 0 + Nx*(Ny - 2);  // extrapolate neighbour density
 	loc_rho = 0.0;
 	for (int a = 0; a < Q; a++)
-		loc_rho += ftemp[Q*ij + a];
-	ij = 0 + Nx*(Ny - 1);
-	ftemp[Q*ij + 1] = ftemp[Q*ij + 3];
-	ftemp[Q*ij + 4] = ftemp[Q*ij + 2];
-	ftemp[Q*ij + 8] = ftemp[Q*ij + 6];
+		loc_rho += ftemp[Q*cord + a];
+	cord = 0 + Nx*(Ny - 1);
+	ftemp[Q*cord + 1] = ftemp[Q*cord + 3];
+	ftemp[Q*cord + 4] = ftemp[Q*cord + 2];
+	ftemp[Q*cord + 8] = ftemp[Q*cord + 6];
 	// f5 = 1/2 * (rho - (f0 + f1 + f2 + f3 + f4 + f6 + f8))
-	ftemp[Q*ij + 5] = 0.5*(loc_rho - ftemp[Q*ij]) - (ftemp[Q*ij + 2] + ftemp[Q*ij + 3] + ftemp[Q*ij + 6]);
-	ftemp[Q*ij + 7] = ftemp[Q*ij + 5];
+	ftemp[Q*cord + 5] = 0.5*(loc_rho - ftemp[Q*cord]) - (ftemp[Q*cord + 2] + ftemp[Q*cord + 3] + ftemp[Q*cord + 6]);
+	ftemp[Q*cord + 7] = ftemp[Q*cord + 5];
 
 
 	// corner of north-east outlet
-	ij = (Nx - 1) + Nx*(Ny - 2);  // extrapolate neighbour density
+	cord = (Nx - 1) + Nx*(Ny - 2);  // extrapolate neighbour density
 	loc_rho = 0.0;
 	for (int a = 0; a < Q; a++)
-		loc_rho += ftemp[Q*ij + a];
-	ij = (Nx - 1) + Nx*(Ny - 1);
-	ftemp[Q*ij + 3] = ftemp[Q*ij + 1];
-	ftemp[Q*ij + 4] = ftemp[Q*ij + 2];
-	ftemp[Q*ij + 7] = ftemp[Q*ij + 5];
+		loc_rho += ftemp[Q*cord + a];
+	cord = (Nx - 1) + Nx*(Ny - 1);
+	ftemp[Q*cord + 3] = ftemp[Q*cord + 1];
+	ftemp[Q*cord + 4] = ftemp[Q*cord + 2];
+	ftemp[Q*cord + 7] = ftemp[Q*cord + 5];
 	// f6 = 1/2 * (rho - (f0 + f1 + f2 + f3 + f4 + f5 + f7))
-	ftemp[Q*ij + 6] = 0.5*(loc_rho - ftemp[Q*ij]) - (ftemp[Q*ij + 3] + ftemp[Q*ij + 4] + ftemp[Q*ij + 7]);
-	ftemp[Q*ij + 8] = ftemp[Q*ij + 6];
+	ftemp[Q*cord + 6] = 0.5*(loc_rho - ftemp[Q*cord]) - (ftemp[Q*cord + 3] + ftemp[Q*cord + 4] + ftemp[Q*cord + 7]);
+	ftemp[Q*cord + 8] = ftemp[Q*cord + 6];
 
 
 	// Apply standard bounceback at all inner solids (on-grid)
-	for (int j = 1; j < Ny-1; j++)
-		for (int i = 1; i < Nx-1; i++)
+	for (int y = 1; y < Ny-1; y++)
+		for (int x = 1; x < Nx-1; x++)
 		{
-			int ij = i + Nx*j;
-			if (solid_node[ij])
+			int cord = x + Nx*y;
+			if (solid_node[cord])
 			{
-				f[Q*ij + 1] = ftemp[Q*ij + 3];
-				f[Q*ij + 2] = ftemp[Q*ij + 4];
-				f[Q*ij + 3] = ftemp[Q*ij + 1];
-				f[Q*ij + 4] = ftemp[Q*ij + 2];
-				f[Q*ij + 5] = ftemp[Q*ij + 7];
-				f[Q*ij + 6] = ftemp[Q*ij + 8];
-				f[Q*ij + 7] = ftemp[Q*ij + 5];
-				f[Q*ij + 8] = ftemp[Q*ij + 6];
+				f[Q*cord + 1] = ftemp[Q*cord + 3];
+				f[Q*cord + 2] = ftemp[Q*cord + 4];
+				f[Q*cord + 3] = ftemp[Q*cord + 1];
+				f[Q*cord + 4] = ftemp[Q*cord + 2];
+				f[Q*cord + 5] = ftemp[Q*cord + 7];
+				f[Q*cord + 6] = ftemp[Q*cord + 8];
+				f[Q*cord + 7] = ftemp[Q*cord + 5];
+				f[Q*cord + 8] = ftemp[Q*cord + 6];
 			}
 		}
 }
@@ -193,23 +193,23 @@ void calc_macro_quant(int Nx, int Ny, int Q,
 					  float* rho, float* ftemp, bool* solid_node,
 					  const int* ex, const int* ey)
 {
-	for (int j = 0; j < Ny; j++)
-		for (int i = 0; i < Nx; i++)
+	for (int y = 0; y < Ny; y++)
+		for (int x = 0; x < Nx; x++)
 		{
-			int ij = i + Nx*j;
-			u_x[ij] = 0.0;
-			u_y[ij] = 0.0;
-			rho[ij] = 0.0;
-			if (!solid_node[ij])
+			int cord = x + Nx*y;
+			u_x[cord] = 0.0;
+			u_y[cord] = 0.0;
+			rho[cord] = 0.0;
+			if (!solid_node[cord])
 			{
 				for (int a = 0; a < Q; a++)
 				{
-					u_x[ij] += ex[a] * ftemp[Q*ij + a];
-					u_y[ij] += ey[a] * ftemp[Q*ij + a];
-					rho[ij] +=         ftemp[Q*ij + a];
+					u_x[cord] += ex[a] * ftemp[Q*cord + a];
+					u_y[cord] += ey[a] * ftemp[Q*cord + a];
+					rho[cord] +=         ftemp[Q*cord + a];
 				}
-				u_x[ij] /= rho[ij];
-				u_y[ij] /= rho[ij];
+				u_x[cord] /= rho[cord];
+				u_y[cord] /= rho[cord];
 			}
 		}
 }
@@ -220,19 +220,19 @@ void calc_eq(int Nx, int Ny, int Q, float* rho, float* u_x, float* u_y, bool* so
 	float c1 = 3.;
 	float c2 = 9./2.;
 	float c3 = 3./2.;
-	for (int j = 0; j < Ny; j++)
-		for (int i = 0; i < Nx; i++)
+	for (int y = 0; y < Ny; y++)
+		for (int x = 0; x < Nx; x++)
 		{
-			int ij = i + Nx*j;
-			if (!solid_node[ij])
+			int cord = x + Nx*y;
+			if (!solid_node[cord])
 			{
-				float rhoij = rho[ij];
+				float rhoij = rho[cord];
 				float w_rho0 = 4./9.  * rhoij;
 				float w_rho1 = 1./9.  * rhoij;
 				float w_rho2 = 1./36. * rhoij;
 
-				float uxij = u_x[ij];
-				float uyij = u_y[ij];
+				float uxij = u_x[cord];
+				float uyij = u_y[cord];
 
 				float uxsq = uxij * uxij;
 				float uysq = uyij * uyij;
@@ -246,15 +246,15 @@ void calc_eq(int Nx, int Ny, int Q, float* rho, float* u_x, float* u_y, bool* so
 				float c4 = c3*usq;
 
 				// note that c = 1
-				result[Q*ij]     = w_rho0*(1.                             - c4);
-				result[Q*ij + 1] = w_rho1*(1. + c1*uxij  + c2*uxsq        - c4);
-				result[Q*ij + 2] = w_rho1*(1. + c1*uyij  + c2*uysq        - c4);
-				result[Q*ij + 3] = w_rho1*(1. - c1*uxij  + c2*uxsq        - c4);
-				result[Q*ij + 4] = w_rho1*(1. - c1*uyij  + c2*uysq        - c4);
-				result[Q*ij + 5] = w_rho2*(1. + c1*uxuy5 + c2*uxuy5*uxuy5 - c4);
-				result[Q*ij + 6] = w_rho2*(1. + c1*uxuy6 + c2*uxuy6*uxuy6 - c4);
-				result[Q*ij + 7] = w_rho2*(1. + c1*uxuy7 + c2*uxuy7*uxuy7 - c4);
-				result[Q*ij + 8] = w_rho2*(1. + c1*uxuy8 + c2*uxuy8*uxuy8 - c4);
+				result[Q*cord]     = w_rho0*(1.                             - c4);
+				result[Q*cord + 1] = w_rho1*(1. + c1*uxij  + c2*uxsq        - c4);
+				result[Q*cord + 2] = w_rho1*(1. + c1*uyij  + c2*uysq        - c4);
+				result[Q*cord + 3] = w_rho1*(1. - c1*uxij  + c2*uxsq        - c4);
+				result[Q*cord + 4] = w_rho1*(1. - c1*uyij  + c2*uysq        - c4);
+				result[Q*cord + 5] = w_rho2*(1. + c1*uxuy5 + c2*uxuy5*uxuy5 - c4);
+				result[Q*cord + 6] = w_rho2*(1. + c1*uxuy6 + c2*uxuy6*uxuy6 - c4);
+				result[Q*cord + 7] = w_rho2*(1. + c1*uxuy7 + c2*uxuy7*uxuy7 - c4);
+				result[Q*cord + 8] = w_rho2*(1. + c1*uxuy8 + c2*uxuy8*uxuy8 - c4);
 			}
 		}
 } 
@@ -262,16 +262,16 @@ void calc_eq(int Nx, int Ny, int Q, float* rho, float* u_x, float* u_y, bool* so
 // collision step
 void collide(int Nx, int Ny, int Q, float* f, float* ftemp, float* feq, bool* solid_node, float tau)
 {
-	for (int j = 0; j < Ny; j++)
-		for (int i = 0; i < Nx; i++)
+	for (int y = 0; y < Ny; y++)
+		for (int x = 0; x < Nx; x++)
 		{
-			int ij = i + Nx*j;
-			if (!solid_node[ij])
+			int cord = x + Nx*y;
+			if (!solid_node[cord])
 			{
 				for (int a = 0; a < Q; a++)
 				{
-					int ija = Q*ij + a;
-					f[ija] = ftemp[ija] - (ftemp[ija] - feq[ija]) / tau;
+					int xya = Q*cord + a;
+					f[xya] = ftemp[xya] - (ftemp[xya] - feq[xya]) / tau;
 				}
 			}
 		}

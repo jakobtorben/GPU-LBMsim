@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <math.h>
+#include <chrono>
 
 #include "core.hpp"
 #include "utils.hpp"
@@ -58,6 +59,7 @@ int main(int argc, char* argv[])
 
 	// simulation main loop
 	cout << "Running simulation...\n";
+	auto start = std::chrono::system_clock::now();
 	int it = 0, out_cnt = 0;
 	while (it < input.iterations)
 	{
@@ -78,7 +80,7 @@ int main(int argc, char* argv[])
 		collide(Nx, Ny, Q, f, ftemp, feq, solid_node, tau);
 
 		// write to file
-		if (it > input.iterations*0.9 && it % 200 == 0)
+		if (input.save && it > input.iterations*0.8 && it % 100 == 0)
 		{
 			cout << "iteration: " << it << "\toutput: " << out_cnt << endl;
 			write_to_file(out_cnt, u_x, u_y, Nx, Ny);
@@ -86,6 +88,8 @@ int main(int argc, char* argv[])
 		}
 		it++;
 	}
+
+	timings(start, input);
 
 	delete[] f;
 	delete[] ftemp;
