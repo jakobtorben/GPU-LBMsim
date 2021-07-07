@@ -8,6 +8,7 @@ struct input_struct
 	float reynolds;
 	float kin_visc;
 	int iterations;
+	int printstep;
 	bool save;
 
 };

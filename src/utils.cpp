@@ -59,6 +59,7 @@ void read_input(std::string fname, input_struct& input)
 		if (variable == "reynolds")   file >> input.reynolds;
 		if (variable == "kin_visc")   file >> input.kin_visc;
 		if (variable == "iterations") file >> input.iterations;
+		if (variable == "printstep") file >> input.printstep;
 		if (variable == "save")		  file >> input.save;
 	}
 	file.close();

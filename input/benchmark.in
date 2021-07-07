@@ -3,4 +3,5 @@ Ny 200
 reynolds 5.0
 kin_visc 0.1
 iterations 2000
+printstep 100
 save 0

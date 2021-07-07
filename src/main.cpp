@@ -28,10 +28,6 @@ int main(int argc, char* argv[])
     float mach = ux0 / cs;			// mach number
     float tau = (3. * input.kin_visc + 0.5); // collision timescale	
 
-    // velocity components
-    const int ex[Q] = { 0, 1, 0, -1,  0, 1, -1, -1,  1 };
-    const int ey[Q] = { 0, 0, 1,  0, -1, 1,  1, -1, -1 };
-
 	// print constants
 	cout << "Nx: " << Nx << " Ny: " << Ny << endl;
 	cout << "Reynolds number: " << input.reynolds << endl;
@@ -43,47 +39,41 @@ int main(int argc, char* argv[])
     // allocate grid
     float* f          = new float[Nx * Ny * Q];
     float* ftemp      = new float[Nx * Ny * Q];
-    float* feq        = new float[Nx * Ny * Q];
 
     bool*  solid_node = new bool [Nx * Ny];
-    float* u_x        = new float[Nx * Ny];
-    float* u_y        = new float[Nx * Ny];
-    float* rho        = new float[Nx * Ny];
+    float* ux_arr        = new float[Nx * Ny];
+    float* uy_arr        = new float[Nx * Ny];
+    float* rho_arr        = new float[Nx * Ny];
 
 
 	// defines geometry
 	read_geometry(Nx, Ny, solid_node);
 
 	// apply initial conditions - flow to the rigth
-	initialise(Nx, Ny, Q, ux0, f, ftemp, rho, u_x, u_y);
+	initialise(Nx, Ny, Q, ux0, f, ftemp, rho_arr, ux_arr, uy_arr, solid_node);
 
 	// simulation main loop
 	cout << "Running simulation...\n";
 	auto start = std::chrono::system_clock::now();
 	int it = 0, out_cnt = 0;
+	bool save = input.save;
 	while (it < input.iterations)
 	{
-
+		save = input.save && (it % input.printstep == 0);
 		// streaming step
 		stream(Nx, Ny, Q, ftemp, f, solid_node);
 
 		// enforces bounadry conditions
 		boundary(Nx, Ny, Q, ux0, ftemp, f, solid_node);
 
-		// calculate macroscopic quantities
-		calc_macro_quant(Nx, Ny, Q, u_x, u_y, rho, ftemp, solid_node, ex, ey);
-		
-		// calc equilibrium function
-		calc_eq(Nx, Ny, Q, rho, u_x, u_y, solid_node, feq);
-
 		// collision step
-		collide(Nx, Ny, Q, f, ftemp, feq, solid_node, tau);
+		collide(Nx, Ny, Q, rho_arr, ux_arr, uy_arr, f, ftemp, solid_node, tau, save);
 
 		// write to file
-		if (input.save && it > input.iterations*0.8 && it % 100 == 0)
+		if (save)
 		{
 			cout << "iteration: " << it << "\toutput: " << out_cnt << endl;
-			write_to_file(out_cnt, u_x, u_y, Nx, Ny);
+			write_to_file(out_cnt, ux_arr, uy_arr, Nx, Ny);
 			out_cnt++;
 		}
 		it++;
@@ -93,10 +83,9 @@ int main(int argc, char* argv[])
 
 	delete[] f;
 	delete[] ftemp;
-	delete[] feq;
 	delete[] solid_node;
-	delete[] u_x;
-	delete[] u_y;
-	delete[] rho;
+	delete[] ux_arr;
+	delete[] uy_arr;
+	delete[] rho_arr;
 
 }
