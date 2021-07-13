@@ -59,6 +59,7 @@ int main(int argc, char* argv[])
     cout << "        free memory: " << gpu_free_mem/(1024.*1024.) << "MiB\n";
 
     // allocate grid
+    /*
     float* f          = new float[Nx * Ny * Q];
     float* ftemp      = new float[Nx * Ny * Q];
 
@@ -66,13 +67,24 @@ int main(int argc, char* argv[])
     float* ux_arr        = new float[Nx * Ny];
     float* uy_arr        = new float[Nx * Ny];
     float* rho_arr        = new float[Nx * Ny];
+    */
+
+    float *f, *ftemp;
+    float *ux_arr, *uy_arr, *rho_arr;
+    bool *solid_node;
+    cudaMalloc((void**)&f, Nx*Ny*Q);
+    cudaMalloc((void**)&ftemp, Nx*Ny*Q);
+    cudaMalloc((void**)&ux_arr, Nx*Ny);
+    cudaMalloc((void**)&uy_arr, Nx*Ny);
+    cudaMalloc((void**)&rho_arr, Nx*Ny);
+    cudaMalloc((void**)&solid_node, Nx*Ny);
 
 
 	// define geometry
-	read_geometry(Nx, Ny, solid_node);
+	//read_geometry(Nx, Ny, solid_node);
 
 	// apply initial conditions - flow to the rigth
-	initialise(Nx, Ny, Q, ux0, f, ftemp, rho_arr, ux_arr, uy_arr, solid_node);
+	//initialise(Nx, Ny, Q, ux0, f, ftemp, rho_arr, ux_arr, uy_arr, solid_node);
 
     // set threads to dimension of blocks
     const int num_threads = blockDim.x;
@@ -91,7 +103,7 @@ int main(int argc, char* argv[])
 	{
 		save = input.save && (it % input.printstep == 0);
 		// streaming step
-		stream_periodic_gpu(Nx, Ny, Q, ftemp, f, solid_node);
+		stream_periodic_gpu<<< grid, threads >>>(Nx, Ny, Q, ftemp, f, solid_node);
 
 		// enforces bounadry conditions
 		//boundary_gpu(Nx, Ny, Q, ux0, ftemp, f, solid_node);
@@ -114,11 +126,14 @@ int main(int argc, char* argv[])
 
 	timings(start, input);
 
-	delete[] f;
-	delete[] ftemp;
-	delete[] solid_node;
-	delete[] ux_arr;
-	delete[] uy_arr;
-	delete[] rho_arr;
+	cudaFree(f);
+	cudaFree(ftemp);
+	cudaFree(solid_node);
+	cudaFree(ux_arr);
+	cudaFree(uy_arr);
+	cudaFree(rho_arr);
+
+    // release GPU device resources
+    cudaDeviceReset();
 
 }
