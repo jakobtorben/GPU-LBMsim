@@ -1,6 +1,6 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
 
-project(LBM_sim)
+project(LBM_sim LANGUAGES C CXX)
 
 # GoogleTest requires at least C++11
 set(CMAKE_CXX_STANDARD 11)
@@ -14,6 +14,13 @@ FetchContent_Declare(
 # For Windows: Prevent overriding the parent project's compiler/linker settings
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
+
+# Check for GPU support
+#option(USE_GPU "Enabling GPU" ON)
+#if(USE_GPU)
+#  enable_language(CUDA)
+#  set( CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS})
+#endif()
 
 # Build Targets
 enable_testing()

@@ -3,12 +3,11 @@
 #include <math.h>
 #include <chrono>
 
-#include <stdio.h>
 #include <cuda.h>
 
-#include "core_gpu.hpp"
 #include "utils.hpp"
-#include "init.hpp"
+#include "core_gpu.hpp"
+#include "init_gpu.hpp"
 
 using namespace std;
 
@@ -58,33 +57,19 @@ int main(int argc, char* argv[])
     cout << "      global memory: " << deviceProp.totalGlobalMem/(1024.*1024.) << "MiB\n";
     cout << "        free memory: " << gpu_free_mem/(1024.*1024.) << "MiB\n";
 
-    // allocate grid
-    /*
-    float* f          = new float[Nx * Ny * Q];
-    float* ftemp      = new float[Nx * Ny * Q];
-
-    bool*  solid_node = new bool [Nx * Ny];
-    float* ux_arr        = new float[Nx * Ny];
-    float* uy_arr        = new float[Nx * Ny];
-    float* rho_arr        = new float[Nx * Ny];
-    */
-
-    float *f, *ftemp;
-    float *ux_arr, *uy_arr, *rho_arr;
-    bool *solid_node;
-    cudaMalloc((void**)&f, Nx*Ny*Q);
-    cudaMalloc((void**)&ftemp, Nx*Ny*Q);
-    cudaMalloc((void**)&ux_arr, Nx*Ny);
-    cudaMalloc((void**)&uy_arr, Nx*Ny);
-    cudaMalloc((void**)&rho_arr, Nx*Ny);
-    cudaMalloc((void**)&solid_node, Nx*Ny);
-
-
-	// define geometry
-	//read_geometry(Nx, Ny, solid_node);
-
-	// apply initial conditions - flow to the rigth
-	//initialise(Nx, Ny, Q, ux0, f, ftemp, rho_arr, ux_arr, uy_arr, solid_node);
+    // allocate memory
+    float *f_gpu, *ftemp_gpu;
+    float *ux_arr_gpu, *uy_arr_gpu, *rho_arr_gpu;
+    bool *solid_node_gpu;
+    cudaMalloc((void**)&f_gpu, Nx*Ny*Q);
+    cudaMalloc((void**)&ftemp_gpu, Nx*Ny*Q);
+    cudaMalloc((void**)&ux_arr_gpu, Nx*Ny);
+    cudaMalloc((void**)&uy_arr_gpu, Nx*Ny);
+    cudaMalloc((void**)&rho_arr_gpu, Nx*Ny);
+    cudaMalloc((void**)&solid_node_gpu, Nx*Ny);
+    float* ux_arr_host        = new float[Nx * Ny];
+    float* uy_arr_host        = new float[Nx * Ny];
+    //float* rho_arr_host        = new float[Nx * Ny];
 
     // set threads to dimension of blocks
     const int num_threads = blockDim.x;
@@ -93,6 +78,12 @@ int main(int argc, char* argv[])
     dim3  grid(Nx/num_threads, Ny, 1);
     // threads in block
     dim3  threads(num_threads, 1, 1);
+
+    // define geometry
+	read_geometry<<< grid, threads >>>(Nx, Ny, solid_node_gpu);
+
+	// apply initial conditions - flow to the rigth
+	initialise<<< grid, threads >>>(Nx, Ny, Q, ux0, f_gpu, ftemp_gpu, rho_arr_gpu, ux_arr_gpu, uy_arr_gpu, solid_node_gpu);
 
     // simulation main loop
 	cout << "Running simulation...\n";
@@ -103,13 +94,13 @@ int main(int argc, char* argv[])
 	{
 		save = input.save && (it % input.printstep == 0);
 		// streaming step
-		stream_periodic_gpu<<< grid, threads >>>(Nx, Ny, Q, ftemp, f, solid_node);
+		stream_periodic_gpu<<< grid, threads >>>(Nx, Ny, Q, ftemp_gpu, f_gpu, solid_node_gpu);
 
 		// enforces bounadry conditions
-		//boundary_gpu(Nx, Ny, Q, ux0, ftemp, f, solid_node);
+		//boundary_gpu(Nx, Ny, Q, ux0, ftemp_gpu, f_gpu, solid_node_gpu);
 
 		// collision step
-		collide_gpu<<< grid, threads >>>(Nx, Ny, Q, rho_arr, ux_arr, uy_arr, f, ftemp, solid_node, tau, save);
+		collide_gpu<<< grid, threads >>>(Nx, Ny, Q, rho_arr_gpu, ux_arr_gpu, uy_arr_gpu, f_gpu, ftemp_gpu, solid_node_gpu, tau, save);
 
         // synchronise threads
         //__syncthreads();
@@ -118,7 +109,11 @@ int main(int argc, char* argv[])
 		if (save)
 		{
 			cout << "iteration: " << it << "\toutput: " << out_cnt << endl;
-			write_to_file(out_cnt, ux_arr, uy_arr, Nx, Ny);
+             // transfer memory from GPU to host
+            cudaMemcpy(ux_arr_host, ux_arr_gpu, Nx*Ny, cudaMemcpyDeviceToHost);
+            cudaMemcpy(uy_arr_host, uy_arr_gpu, Nx*Ny, cudaMemcpyDeviceToHost);
+            //cudaMemcpy(rho_arr_host, rho_arr_gpu, Nx*Ny, cudaMemcpyDeviceToHost);
+			write_to_file(out_cnt, ux_arr_host, uy_arr_host, Nx, Ny);
 			out_cnt++;
 		}
 		it++;
@@ -126,12 +121,15 @@ int main(int argc, char* argv[])
 
 	timings(start, input);
 
-	cudaFree(f);
-	cudaFree(ftemp);
-	cudaFree(solid_node);
-	cudaFree(ux_arr);
-	cudaFree(uy_arr);
-	cudaFree(rho_arr);
+	cudaFree(f_gpu);
+	cudaFree(ftemp_gpu);
+	cudaFree(solid_node_gpu);
+	cudaFree(ux_arr_gpu);
+	cudaFree(uy_arr_gpu);
+	cudaFree(rho_arr_gpu);
+    delete[] ux_arr_host;
+	delete[] uy_arr_host;
+	//delete[] rho_arr_host;
 
     // release GPU device resources
     cudaDeviceReset();

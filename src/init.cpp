@@ -3,7 +3,7 @@
 #include "init.hpp"
 
 
-// this will later read xn a predefined mask
+// this will later read in a predefined mask
 void read_geometry(int Nx, int Ny, bool* solid_node)
 {
 	// define geometry
