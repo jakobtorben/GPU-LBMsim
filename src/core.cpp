@@ -171,73 +171,7 @@ void boundary(int Nx, int Ny, int Q, float ux0, float* ftemp, float* f, bool* so
 	// f6 = 1/2 * (rho - (f0 + f1 + f2 + f3 + f4 + f5 + f7))
 	ftemp[Q*cord + 6] = 0.5*(rho - ftemp[Q*cord]) - (ftemp[Q*cord + 3] + ftemp[Q*cord + 4] + ftemp[Q*cord + 7]);
 	ftemp[Q*cord + 8] = ftemp[Q*cord + 6];
-
-
-	// Apply standard bounceback at all inner solids (on-grid)
-	for (int y = 1; y < Ny-1; y++)
-		for (int x = 1; x < Nx-1; x++)
-		{
-			int cord = x + Nx*y;
-			if (solid_node[cord])
-			{
-				f[Q*cord + 1] = ftemp[Q*cord + 3];
-				f[Q*cord + 2] = ftemp[Q*cord + 4];
-				f[Q*cord + 3] = ftemp[Q*cord + 1];
-				f[Q*cord + 4] = ftemp[Q*cord + 2];
-				f[Q*cord + 5] = ftemp[Q*cord + 7];
-				f[Q*cord + 6] = ftemp[Q*cord + 8];
-				f[Q*cord + 7] = ftemp[Q*cord + 5];
-				f[Q*cord + 8] = ftemp[Q*cord + 6];
-			}
-		}
 }
-
-// calculate equilibrium distribution feq
-void calc_eq(int Nx, int Ny, int Q, float* rho, float* u_x, float* u_y, bool* solid_node, float* feq)
-{
-	float c1 = 3.;
-	float c2 = 9./2.;
-	float c3 = 3./2.;
-	for (int y = 0; y < Ny; y++)
-		for (int x = 0; x < Nx; x++)
-		{
-			int cord = x + Nx*y;
-			if (!solid_node[cord])
-			{
-				float rhoij = rho[cord];
-				float w_rho0 = 4./9.  * rhoij;
-				float w_rho1 = 1./9.  * rhoij;
-				float w_rho2 = 1./36. * rhoij;
-
-				float uxij = u_x[cord];
-				float uyij = u_y[cord];
-
-				float uxsq = uxij * uxij;
-				float uysq = uyij * uyij;
-				float usq =  uxsq + uysq;
-
-				float uxuy5 =  uxij + uyij;
-				float uxuy6 = -uxij + uyij;
-				float uxuy7 = -uxij - uyij;
-				float uxuy8 =  uxij - uyij;
-
-				float c4 = c3*usq;
-
-				// note that c = 1
-				feq[Q*cord]     = w_rho0*(1.                             - c4);
-				feq[Q*cord + 1] = w_rho1*(1. + c1*uxij  + c2*uxsq        - c4);
-				feq[Q*cord + 2] = w_rho1*(1. + c1*uyij  + c2*uysq        - c4);
-				feq[Q*cord + 3] = w_rho1*(1. - c1*uxij  + c2*uxsq        - c4);
-				feq[Q*cord + 4] = w_rho1*(1. - c1*uyij  + c2*uysq        - c4);
-				feq[Q*cord + 5] = w_rho2*(1. + c1*uxuy5 + c2*uxuy5*uxuy5 - c4);
-				feq[Q*cord + 6] = w_rho2*(1. + c1*uxuy6 + c2*uxuy6*uxuy6 - c4);
-				feq[Q*cord + 7] = w_rho2*(1. + c1*uxuy7 + c2*uxuy7*uxuy7 - c4);
-				feq[Q*cord + 8] = w_rho2*(1. + c1*uxuy8 + c2*uxuy8*uxuy8 - c4);
-			}
-		}
-} 
-
-
 
 void collide(int Nx, int Ny, int Q, float* rho_arr, float* ux_arr, float* uy_arr, float* f, float* ftemp, bool* solid_node, float tau, bool save)
 {	
@@ -297,5 +231,17 @@ void collide(int Nx, int Ny, int Q, float* rho_arr, float* ux_arr, float* uy_arr
 				f[Q*cord + 7] = one_tauinv*ftemp[Q*cord + 7] + w_rho2_tauinv*(c + 3.*uxuy7 + c2*uxuy7*uxuy7);
 				f[Q*cord + 8] = one_tauinv*ftemp[Q*cord + 8] + w_rho2_tauinv*(c + 3.*uxuy8 + c2*uxuy8*uxuy8);
 			}
+            else
+            // Apply standard bounceback at all inner solids (on-grid)
+		    {
+				f[Q*cord + 1] = ftemp[Q*cord + 3];
+				f[Q*cord + 2] = ftemp[Q*cord + 4];
+				f[Q*cord + 3] = ftemp[Q*cord + 1];
+				f[Q*cord + 4] = ftemp[Q*cord + 2];
+				f[Q*cord + 5] = ftemp[Q*cord + 7];
+				f[Q*cord + 6] = ftemp[Q*cord + 8];
+				f[Q*cord + 7] = ftemp[Q*cord + 5];
+				f[Q*cord + 8] = ftemp[Q*cord + 6];
+		    }
 		}
 }
