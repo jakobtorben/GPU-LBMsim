@@ -25,15 +25,15 @@ int main(int argc, char* argv[])
 	const int Nx = input.Nx;		// grid size x-direction
 	const int Ny = input.Ny;		// grid size y-direction
     float cs = sqrt(1./3.);			// speed of sound**2 D2Q9
-	// inital speed in x direction
-	float ux0 = input.reynolds*input.kin_visc / float(Ny/4-1);  // Ny/4 is diameter of cylinder
-    float mach = ux0 / cs;			// mach number
-    float tau = (3. * input.kin_visc + 0.5); // collision timescale	
+    float mach = 0.1;               // mach number
+	float ux0 =  mach * cs;         // inital speed in x direction
+    float kin_visc = ux0 * float(Ny/4-1) / input.reynolds; // Ny/4 is diameter of cylinder		
+    float tau = (3. * kin_visc + 0.5); // collision timescale	
 
 	// print constants
 	cout << "Nx: " << Nx << " Ny: " << Ny << endl;
 	cout << "Reynolds number: " << input.reynolds << endl;
-	cout << "kinematic viscosity: " << input.kin_visc << endl;
+	cout << "kinematic viscosity: " << kin_visc << endl;
 	cout << "ux0: " << ux0 << endl;
 	cout << "mach number: " << mach << endl;
 	cout << "tau : " << tau << endl;
@@ -50,29 +50,33 @@ int main(int argc, char* argv[])
     cudaMemGetInfo(&gpu_free_mem, &gpu_total_mem);
 
     cout << "CUDA information\n";
-    cout << "      device number: " << deviceId << "\n";
-    cout << "           GPU name: " << deviceProp.name << "\n";
-    cout << " compute capability: " << deviceProp.major << "." << deviceProp.minor << "\n";
-    cout << "    multiprocessors: " << deviceProp.multiProcessorCount << "\n";
-    cout << "      global memory: " << deviceProp.totalGlobalMem/(1024.*1024.) << "MiB\n";
-    cout << "        free memory: " << gpu_free_mem/(1024.*1024.) << "MiB\n";
+    cout << "device number: " << deviceId << "\n";
+    cout << "GPU name: " << deviceProp.name << "\n";
+    cout << "compute capability: " << deviceProp.major << "." << deviceProp.minor << "\n";
+    cout << "multiprocessor count: " << deviceProp.multiProcessorCount << "\n";
+    cout << "global memory: " << deviceProp.totalGlobalMem/(1024.*1024.) << " MiB\n";
+    cout << "free memory: " << gpu_free_mem/(1024.*1024.) << " MiB\n";
 
     // allocate memory
     float *f_gpu, *ftemp_gpu;
     float *ux_arr_gpu, *uy_arr_gpu, *rho_arr_gpu;
     bool *solid_node_gpu;
-    cudaMalloc((void**)&f_gpu, Nx*Ny*Q);
-    cudaMalloc((void**)&ftemp_gpu, Nx*Ny*Q);
-    cudaMalloc((void**)&ux_arr_gpu, Nx*Ny);
-    cudaMalloc((void**)&uy_arr_gpu, Nx*Ny);
-    cudaMalloc((void**)&rho_arr_gpu, Nx*Ny);
-    cudaMalloc((void**)&solid_node_gpu, Nx*Ny);
+    const size_t arr_size = sizeof(float)*Nx*Ny;
+    const size_t f_size = sizeof(float)*Nx*Ny*Q;
+    cudaMalloc((void**)&f_gpu, f_size);
+    cudaMalloc((void**)&ftemp_gpu, f_size);
+    cudaMalloc((void**)&ux_arr_gpu, arr_size);
+    cudaMalloc((void**)&uy_arr_gpu, arr_size);
+    cudaMalloc((void**)&rho_arr_gpu, arr_size);
+    cudaMalloc((void**)&solid_node_gpu, arr_size);
     float* ux_arr_host        = new float[Nx * Ny];
     float* uy_arr_host        = new float[Nx * Ny];
     //float* rho_arr_host        = new float[Nx * Ny];
 
-    // set threads to dimension of blocks
-    const int num_threads = blockDim.x;
+    // set threads to nVidia's warp size to run all threads concurrently 
+    const int num_threads = 32;
+    if (Nx % num_threads != 0)
+        throw std::invalid_argument( "Nx must be a multiple of num_threads (32)" ); 
 
 	// blocks in grid
     dim3  grid(Nx/num_threads, Ny, 1);
@@ -90,29 +94,27 @@ int main(int argc, char* argv[])
 	auto start = std::chrono::system_clock::now();
 	int it = 0, out_cnt = 0;
 	bool save = input.save;
-	while (0)//it < input.iterations)
+	while (it < input.iterations)
 	{
-		save = input.save && (it % input.printstep == 0);
+		save = input.save && (it > input.printstart) && (it % input.printstep == 0);
 		// streaming step
-		stream_periodic_gpu<<< grid, threads >>>(Nx, Ny, Q, ftemp_gpu, f_gpu, solid_node_gpu);
+        //stream_gpu<<< grid, threads >>>(Nx, Ny, Q, ftemp_gpu, f_gpu, solid_node_gpu);
 
 		// enforces bounadry conditions
 		//boundary_gpu(Nx, Ny, Q, ux0, ftemp_gpu, f_gpu, solid_node_gpu);
 
 		// collision step
-		collide_gpu<<< grid, threads >>>(Nx, Ny, Q, rho_arr_gpu, ux_arr_gpu, uy_arr_gpu, f_gpu, ftemp_gpu, solid_node_gpu, tau, save);
-
-        // synchronise threads
-        //__syncthreads();
+        stream_collide_periodic_gpu<<< grid, threads >>>(Nx, Ny, Q, rho_arr_gpu, ux_arr_gpu, uy_arr_gpu, f_gpu, ftemp_gpu, solid_node_gpu, tau, save);
+		//collide_gpu<<< grid, threads >>>(Nx, Ny, Q, rho_arr_gpu, ux_arr_gpu, uy_arr_gpu, f_gpu, ftemp_gpu, solid_node_gpu, tau, save);
 
 		// write to file
 		if (save)
 		{
-			cout << "iteration: " << it << "\toutput: " << out_cnt << endl;
+            cout << "iteration: " << it << "\toutput: " << out_cnt << endl;
              // transfer memory from GPU to host
-            cudaMemcpy(ux_arr_host, ux_arr_gpu, Nx*Ny, cudaMemcpyDeviceToHost);
-            cudaMemcpy(uy_arr_host, uy_arr_gpu, Nx*Ny, cudaMemcpyDeviceToHost);
-            //cudaMemcpy(rho_arr_host, rho_arr_gpu, Nx*Ny, cudaMemcpyDeviceToHost);
+            cudaMemcpy(ux_arr_host, ux_arr_gpu, arr_size, cudaMemcpyDeviceToHost);
+            cudaMemcpy(uy_arr_host, uy_arr_gpu, arr_size, cudaMemcpyDeviceToHost);
+            //cudaMemcpy(rho_arr_host, rho_arr_gpu, arr_size, cudaMemcpyDeviceToHost);
 			write_to_file(out_cnt, ux_arr_host, uy_arr_host, Nx, Ny);
 			out_cnt++;
 		}

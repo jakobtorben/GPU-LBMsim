@@ -1,7 +1,7 @@
-Nx 200
-Ny 200
+Nx 512
+Ny 512
 reynolds 5.0
-kin_visc 0.1
-iterations 2000
-printstep 100
+iterations 6400
+printstart 5000
+printstep 200
 save 0

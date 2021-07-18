@@ -61,10 +61,10 @@ int main(int argc, char* argv[])
 	{
 		save = input.save && (it % input.printstep == 0);
 		// streaming step
-		stream(Nx, Ny, Q, ftemp, f, solid_node);
+		stream_periodic(Nx, Ny, Q, ftemp, f, solid_node);
 
 		// enforces bounadry conditions
-		boundary(Nx, Ny, Q, ux0, ftemp, f, solid_node);
+		//boundary(Nx, Ny, Q, ux0, ftemp, f, solid_node);
 
 		// collision step
 		collide(Nx, Ny, Q, rho_arr, ux_arr, uy_arr, f, ftemp, solid_node, tau, save);
