@@ -19,19 +19,19 @@ int main(int argc, char* argv[])
     inputfile = argv[1];
 	read_input(inputfile, input);
 
-	const int Q = 9;			    // number of velocity components
-	const int Nx = input.Nx;		// grid size x-direction
-	const int Ny = input.Ny;		// grid size y-direction
+    const int Q = 9;			    // number of velocity components
+	const unsigned int Nx = input.Nx;		// grid size x-direction
+	const unsigned int Ny = input.Ny;		// grid size y-direction
     float cs = sqrt(1./3.);			// speed of sound**2 D2Q9
-	// inital speed in x direction
-	float ux0 = input.reynolds*input.kin_visc / float(Ny/4-1);  // Ny/4 is diameter of cylinder
-    float mach = ux0 / cs;			// mach number
-    float tau = (3. * input.kin_visc + 0.5); // collision timescale	
+    float mach = 0.1;               // mach number
+	float ux0 =  mach * cs;         // inital speed in x direction
+    float kin_visc = ux0 * float(Ny/4-1) / input.reynolds; // Ny/4 is diameter of cylinder		
+    float tau = (3. * kin_visc + 0.5); // collision timescale	
 
 	// print constants
 	cout << "Nx: " << Nx << " Ny: " << Ny << endl;
 	cout << "Reynolds number: " << input.reynolds << endl;
-	cout << "kinematic viscosity: " << input.kin_visc << endl;
+	cout << "kinematic viscosity: " << kin_visc << endl;
 	cout << "ux0: " << ux0 << endl;
 	cout << "mach number: " << mach << endl;
 	cout << "tau : " << tau << endl;

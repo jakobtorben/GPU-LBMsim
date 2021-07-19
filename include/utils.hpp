@@ -6,8 +6,8 @@ struct input_struct
 	int Nx;
 	int Ny;
 	float reynolds;
-	float kin_visc;
 	int iterations;
+    int printstart;
 	int printstep;
 	bool save;
 

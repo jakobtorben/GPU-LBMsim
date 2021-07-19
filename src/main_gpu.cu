@@ -22,8 +22,8 @@ int main(int argc, char* argv[])
 	read_input(inputfile, input);
 
 	const int Q = 9;			    // number of velocity components
-	const int Nx = input.Nx;		// grid size x-direction
-	const int Ny = input.Ny;		// grid size y-direction
+	const unsigned int Nx = input.Nx;		// grid size x-direction
+	const unsigned int Ny = input.Ny;		// grid size y-direction
     float cs = sqrt(1./3.);			// speed of sound**2 D2Q9
     float mach = 0.1;               // mach number
 	float ux0 =  mach * cs;         // inital speed in x direction
@@ -58,19 +58,19 @@ int main(int argc, char* argv[])
     cout << "free memory: " << gpu_free_mem/(1024.*1024.) << " MiB\n";
 
     // allocate memory
+    const size_t arr_size = sizeof(float)*Nx*Ny;
+    const size_t f_size = sizeof(float)*Nx*Ny*Q;
     float *f_gpu, *ftemp_gpu;
     float *ux_arr_gpu, *uy_arr_gpu, *rho_arr_gpu;
     bool *solid_node_gpu;
-    const size_t arr_size = sizeof(float)*Nx*Ny;
-    const size_t f_size = sizeof(float)*Nx*Ny*Q;
     cudaMalloc((void**)&f_gpu, f_size);
     cudaMalloc((void**)&ftemp_gpu, f_size);
     cudaMalloc((void**)&ux_arr_gpu, arr_size);
     cudaMalloc((void**)&uy_arr_gpu, arr_size);
     cudaMalloc((void**)&rho_arr_gpu, arr_size);
     cudaMalloc((void**)&solid_node_gpu, arr_size);
-    float* ux_arr_host        = new float[Nx * Ny];
-    float* uy_arr_host        = new float[Nx * Ny];
+    float* ux_arr_host = new float[Nx * Ny];
+    float* uy_arr_host = new float[Nx * Ny];
     //float* rho_arr_host        = new float[Nx * Ny];
 
     // set threads to nVidia's warp size to run all threads concurrently 
@@ -98,14 +98,14 @@ int main(int argc, char* argv[])
 	{
 		save = input.save && (it > input.printstart) && (it % input.printstep == 0);
 		// streaming step
-        //stream_gpu<<< grid, threads >>>(Nx, Ny, Q, ftemp_gpu, f_gpu, solid_node_gpu);
+        stream_gpu<<< grid, threads >>>(Nx, Ny, ftemp_gpu, f_gpu, solid_node_gpu);
 
 		// enforces bounadry conditions
-		//boundary_gpu(Nx, Ny, Q, ux0, ftemp_gpu, f_gpu, solid_node_gpu);
+		boundary_gpu<<< grid, threads >>>(Nx, Ny, Q, ux0, ftemp_gpu, f_gpu, solid_node_gpu);
 
 		// collision step
-        stream_collide_periodic_gpu<<< grid, threads >>>(Nx, Ny, Q, rho_arr_gpu, ux_arr_gpu, uy_arr_gpu, f_gpu, ftemp_gpu, solid_node_gpu, tau, save);
-		//collide_gpu<<< grid, threads >>>(Nx, Ny, Q, rho_arr_gpu, ux_arr_gpu, uy_arr_gpu, f_gpu, ftemp_gpu, solid_node_gpu, tau, save);
+        //stream_collide_periodic_gpu<<< grid, threads >>>(Nx, Ny, Q, rho_arr_gpu, ux_arr_gpu, uy_arr_gpu, f_gpu, ftemp_gpu, solid_node_gpu, tau, save);
+		collide_gpu<<< grid, threads >>>(Nx, Ny, Q, rho_arr_gpu, ux_arr_gpu, uy_arr_gpu, f_gpu, ftemp_gpu, solid_node_gpu, tau, save);
 
 		// write to file
 		if (save)

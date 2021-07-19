@@ -4,7 +4,7 @@
 
 #include "init_gpu.hpp"
 
-__device__ __forceinline__ size_t f_index(int Nx, int Ny, unsigned int x, unsigned int y, unsigned int a)
+__device__ __forceinline__ size_t f_index(unsigned int Nx, unsigned int Ny, unsigned int x, unsigned int y, unsigned int a)
 {
     return ((Ny*a + y)*Nx + x);
     //return (x + Nx*y)*9 + a;
