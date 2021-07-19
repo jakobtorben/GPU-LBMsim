@@ -20,11 +20,13 @@ __global__ void stream_gpu(unsigned int Nx, unsigned int Ny, float* ftemp, float
     unsigned int x = blockIdx.x*blockDim.x + threadIdx.x;
 
 	// don't stream beyond boundary nodes
-	int yn = (y>0) ? (y-1) : -1;
-	int yp = (y<Ny-1) ? (y+1) : -1;
-    int xn = (x>0) ? (x-1) : -1;
-    int xp = (x<Nx-1) ? (x+1) : -1;
-
+	/*
+    int yn = (y>0) ? (y-1) : 0;
+	int yp = (y<Ny-1) ? (y+1) : 0;
+    int xn = (x>0) ? (x-1) : 0;
+    int xp = (x<Nx-1) ? (x+1) : 0;
+    
+    
                               ftemp[f_index(Nx, Ny, x, y, 0)] = f[f_index(Nx, Ny, x, y, 0)];
     if (xp != -1            ) ftemp[f_index(Nx, Ny, xp, y, 1)] = f[f_index(Nx, Ny, x, y, 1)];
     if (yp != -1            ) ftemp[f_index(Nx, Ny, x, yp, 2)] = f[f_index(Nx, Ny, x, y, 2)];
@@ -34,6 +36,25 @@ __global__ void stream_gpu(unsigned int Nx, unsigned int Ny, float* ftemp, float
     if (xn != -1 && yp != -1) ftemp[f_index(Nx, Ny, xn, yp, 6)] = f[f_index(Nx, Ny, x, y, 6)];
     if (xn != -1 && yn != -1) ftemp[f_index(Nx, Ny, xn, yn, 7)] = f[f_index(Nx, Ny, x, y, 7)];
     if (xp != -1 && yn != -1) ftemp[f_index(Nx, Ny, xp, yn, 8)] = f[f_index(Nx, Ny, x, y, 8)];
+    */
+
+    if (!((x == 0) || (y == 0) || (x == Nx-1) || (y == Ny-1)))
+    {
+        int yn = y-1;
+        int yp = y+1;
+        int xn = x-1;
+        int xp = x+1;
+
+        ftemp[f_index(Nx, Ny, x, y, 0)] = f[f_index(Nx, Ny, x, y, 0)];
+        ftemp[f_index(Nx, Ny, xp, y, 1)] = f[f_index(Nx, Ny, x, y, 1)];
+        ftemp[f_index(Nx, Ny, x, yp, 2)] = f[f_index(Nx, Ny, x, y, 2)];
+        ftemp[f_index(Nx, Ny, xn, y, 3)] = f[f_index(Nx, Ny, x, y, 3)];
+        ftemp[f_index(Nx, Ny, x, yn, 4)] = f[f_index(Nx, Ny, x, y, 4)];
+        ftemp[f_index(Nx, Ny, xp, yp, 5)] = f[f_index(Nx, Ny, x, y, 5)];
+        ftemp[f_index(Nx, Ny, xn, yp, 6)] = f[f_index(Nx, Ny, x, y, 6)];
+        ftemp[f_index(Nx, Ny, xn, yn, 7)] = f[f_index(Nx, Ny, x, y, 7)];
+        ftemp[f_index(Nx, Ny, xp, yn, 8)] = f[f_index(Nx, Ny, x, y, 8)];
+    }
 }
 
 __global__ void boundary_gpu(unsigned int Nx, unsigned int Ny, int Q, float ux0, float* ftemp, float* f, bool* solid_node)
@@ -43,7 +64,6 @@ __global__ void boundary_gpu(unsigned int Nx, unsigned int Ny, int Q, float ux0,
 	// velocity BCs on west-side (inlet) using Zou and He.
     if ((x == 0) && (y < Ny-1))
 	{
-		int cord = x + Nx*y;
 		float rho0 = (ftemp[f_index(Nx, Ny, x, y, 0)] + ftemp[f_index(Nx, Ny, x, y, 2)] + ftemp[f_index(Nx, Ny, x, y, 4)]
 			+ 2.*(ftemp[f_index(Nx, Ny, x, y, 3)] + ftemp[f_index(Nx, Ny, x, y, 7)] + ftemp[f_index(Nx, Ny, x, y, 6)])) / (1. - ux0);
 		float ru = rho0*ux0;
@@ -235,8 +255,7 @@ __global__ void collide_gpu(unsigned int Nx, unsigned int Ny, int Q, float* rho_
     }
 }
 
-
-__global__ void stream_collide_periodic_gpu(int Nx, int Ny, int Q, float* rho_arr, float* ux_arr, float* uy_arr, float* f, float* ftemp, bool* solid_node, float tau, bool save)
+__global__ void stream_collide_periodic_gpu(unsigned int Nx, unsigned int Ny, int Q, float* rho_arr, float* ux_arr, float* uy_arr, float* f, float* ftemp, bool* solid_node, float tau, bool save)
 {	
 	unsigned int y = blockIdx.y;
     unsigned int x = blockIdx.x*blockDim.x + threadIdx.x;
@@ -245,16 +264,17 @@ __global__ void stream_collide_periodic_gpu(int Nx, int Ny, int Q, float* rho_ar
     int yp = (y<Ny-1) ? (y+1) : (0   );
     int xn = (x>0   ) ? (x-1) : (Nx-1);
     int xp = (x<Nx-1) ? (x+1) : (0   );
-
-    ftemp[f_index(Nx, Ny, x, y, 0)] = f[f_index(Nx, Ny, x, y, 0)];
-    ftemp[f_index(Nx, Ny, xp, y, 1)] = f[f_index(Nx, Ny, x, y, 1)];
-    ftemp[f_index(Nx, Ny, x, yp, 2)] = f[f_index(Nx, Ny, x, y, 2)];
-    ftemp[f_index(Nx, Ny, xn, y, 3)] = f[f_index(Nx, Ny, x, y, 3)];
-    ftemp[f_index(Nx, Ny, x, yn, 4)] = f[f_index(Nx, Ny, x, y, 4)];
-    ftemp[f_index(Nx, Ny, xp, yp, 5)] = f[f_index(Nx, Ny, x, y, 5)];
-    ftemp[f_index(Nx, Ny, xn, yp, 6)] = f[f_index(Nx, Ny, x, y, 6)];
-    ftemp[f_index(Nx, Ny, xn, yn, 7)] = f[f_index(Nx, Ny, x, y, 7)];
-    ftemp[f_index(Nx, Ny, xp, yn, 8)] = f[f_index(Nx, Ny, x, y, 8)];
+    
+    // stream by pulling densities from neighbour nodes
+    float f0 = f[f_index(Nx, Ny, x, y, 0)];
+    float f1 = f[f_index(Nx, Ny, xn, y, 1)];
+    float f2 = f[f_index(Nx, Ny, x, yn, 2)];
+    float f3 = f[f_index(Nx, Ny, xp, y, 3)];
+    float f4 = f[f_index(Nx, Ny, x, yp, 4)];
+    float f5 = f[f_index(Nx, Ny, xn, yn, 5)];
+    float f6 = f[f_index(Nx, Ny, xp, yn, 6)];
+    float f7 = f[f_index(Nx, Ny, xp, yp, 7)];
+    float f8 = f[f_index(Nx, Ny, xn, yp, 8)];
     
     
     float w0 = 4./9., w1 = 1./9., w2 = 1./36.;
@@ -265,18 +285,10 @@ __global__ void stream_collide_periodic_gpu(int Nx, int Ny, int Q, float* rho_ar
     int cord = x + Nx*y;
     if (!solid_node[cord])
     {
-
         // compute macroscopic quantities
-        double rho =  ftemp[f_index(Nx, Ny, x, y, 0)] + ftemp[f_index(Nx, Ny, x, y, 1)] + ftemp[f_index(Nx, Ny, x, y, 2)]
-                    + ftemp[f_index(Nx, Ny, x, y, 3)] + ftemp[f_index(Nx, Ny, x, y, 4)] + ftemp[f_index(Nx, Ny, x, y, 5)]
-                    + ftemp[f_index(Nx, Ny, x, y, 6)] + ftemp[f_index(Nx, Ny, x, y, 7)] + ftemp[f_index(Nx, Ny, x, y, 8)];
-
-        float ux =  (ftemp[f_index(Nx, Ny, x, y, 1)] + ftemp[f_index(Nx, Ny, x, y, 5)] + ftemp[f_index(Nx, Ny, x, y, 8)])
-                    - (ftemp[f_index(Nx, Ny, x, y, 3)] + ftemp[f_index(Nx, Ny, x, y, 6)] + ftemp[f_index(Nx, Ny, x, y, 7)]);
-        float uy =  (ftemp[f_index(Nx, Ny, x, y, 2)] + ftemp[f_index(Nx, Ny, x, y, 5)] + ftemp[f_index(Nx, Ny, x, y, 6)])
-                    - (ftemp[f_index(Nx, Ny, x, y, 4)] + ftemp[f_index(Nx, Ny, x, y, 7)] + ftemp[f_index(Nx, Ny, x, y, 8)]);
-        ux /= rho;
-        uy /= rho;
+        float rho = f0 + f1 + f2 + f3 + f4 + f5 + f6 + f7 + f8;
+        float ux = (f1 + f5 + f8 - (f3 + f6 + f7))/rho;
+        float uy = (f2 + f5 + f6 - (f4 + f7 + f8))/rho;
 
         // store to memory only when needed for output
         if (save)
@@ -300,26 +312,26 @@ __global__ void stream_collide_periodic_gpu(int Nx, int Ny, int Q, float* rho_ar
         float uxuy8 =  ux - uy;
 
         float c = 1 - 1.5*usq;
-        f[f_index(Nx, Ny, x, y, 0)] = one_tauinv*ftemp[f_index(Nx, Ny, x, y, 0)] + w_rho0_tauinv*(c                           );
-        f[f_index(Nx, Ny, x, y, 1)] = one_tauinv*ftemp[f_index(Nx, Ny, x, y, 1)] + w_rho1_tauinv*(c + 3.*ux  + c2*uxsq        );
-        f[f_index(Nx, Ny, x, y, 2)] = one_tauinv*ftemp[f_index(Nx, Ny, x, y, 2)] + w_rho1_tauinv*(c + 3.*uy  + c2*uysq        );
-        f[f_index(Nx, Ny, x, y, 3)] = one_tauinv*ftemp[f_index(Nx, Ny, x, y, 3)] + w_rho1_tauinv*(c - 3.*ux  + c2*uxsq        );
-        f[f_index(Nx, Ny, x, y, 4)] = one_tauinv*ftemp[f_index(Nx, Ny, x, y, 4)] + w_rho1_tauinv*(c - 3.*uy  + c2*uysq        );
-        f[f_index(Nx, Ny, x, y, 5)] = one_tauinv*ftemp[f_index(Nx, Ny, x, y, 5)] + w_rho2_tauinv*(c + 3.*uxuy5 + c2*uxuy5*uxuy5);
-        f[f_index(Nx, Ny, x, y, 6)] = one_tauinv*ftemp[f_index(Nx, Ny, x, y, 6)] + w_rho2_tauinv*(c + 3.*uxuy6 + c2*uxuy6*uxuy6);
-        f[f_index(Nx, Ny, x, y, 7)] = one_tauinv*ftemp[f_index(Nx, Ny, x, y, 7)] + w_rho2_tauinv*(c + 3.*uxuy7 + c2*uxuy7*uxuy7);
-        f[f_index(Nx, Ny, x, y, 8)] = one_tauinv*ftemp[f_index(Nx, Ny, x, y, 8)] + w_rho2_tauinv*(c + 3.*uxuy8 + c2*uxuy8*uxuy8);
+        f[f_index(Nx, Ny, x, y, 0)] = one_tauinv*f0 + w_rho0_tauinv*(c                           );
+        f[f_index(Nx, Ny, x, y, 1)] = one_tauinv*f1 + w_rho1_tauinv*(c + 3.*ux  + c2*uxsq        );
+        f[f_index(Nx, Ny, x, y, 2)] = one_tauinv*f2 + w_rho1_tauinv*(c + 3.*uy  + c2*uysq        );
+        f[f_index(Nx, Ny, x, y, 3)] = one_tauinv*f3 + w_rho1_tauinv*(c - 3.*ux  + c2*uxsq        );
+        f[f_index(Nx, Ny, x, y, 4)] = one_tauinv*f4 + w_rho1_tauinv*(c - 3.*uy  + c2*uysq        );
+        f[f_index(Nx, Ny, x, y, 5)] = one_tauinv*f5 + w_rho2_tauinv*(c + 3.*uxuy5 + c2*uxuy5*uxuy5);
+        f[f_index(Nx, Ny, x, y, 6)] = one_tauinv*f6 + w_rho2_tauinv*(c + 3.*uxuy6 + c2*uxuy6*uxuy6);
+        f[f_index(Nx, Ny, x, y, 7)] = one_tauinv*f7 + w_rho2_tauinv*(c + 3.*uxuy7 + c2*uxuy7*uxuy7);
+        f[f_index(Nx, Ny, x, y, 8)] = one_tauinv*f8 + w_rho2_tauinv*(c + 3.*uxuy8 + c2*uxuy8*uxuy8);
     }
     else
     {
         // Apply standard bounceback at all inner solids (on-grid)
-        f[f_index(Nx, Ny, x, y, 1)] = ftemp[f_index(Nx, Ny, x, y, 3)];
-        f[f_index(Nx, Ny, x, y, 2)] = ftemp[f_index(Nx, Ny, x, y, 4)];
-        f[f_index(Nx, Ny, x, y, 3)] = ftemp[f_index(Nx, Ny, x, y, 1)];
-        f[f_index(Nx, Ny, x, y, 4)] = ftemp[f_index(Nx, Ny, x, y, 2)];
-        f[f_index(Nx, Ny, x, y, 5)] = ftemp[f_index(Nx, Ny, x, y, 7)];
-        f[f_index(Nx, Ny, x, y, 6)] = ftemp[f_index(Nx, Ny, x, y, 8)];
-        f[f_index(Nx, Ny, x, y, 7)] = ftemp[f_index(Nx, Ny, x, y, 5)];
-        f[f_index(Nx, Ny, x, y, 8)] = ftemp[f_index(Nx, Ny, x, y, 6)];
+        f[f_index(Nx, Ny, x, y, 1)] = f3;
+        f[f_index(Nx, Ny, x, y, 2)] = f4;
+        f[f_index(Nx, Ny, x, y, 3)] = f1;
+        f[f_index(Nx, Ny, x, y, 4)] = f2;
+        f[f_index(Nx, Ny, x, y, 5)] = f7;
+        f[f_index(Nx, Ny, x, y, 6)] = f8;
+        f[f_index(Nx, Ny, x, y, 7)] = f5;
+        f[f_index(Nx, Ny, x, y, 8)] = f6;
     }
 }

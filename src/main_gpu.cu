@@ -98,14 +98,14 @@ int main(int argc, char* argv[])
 	{
 		save = input.save && (it > input.printstart) && (it % input.printstep == 0);
 		// streaming step
-        stream_gpu<<< grid, threads >>>(Nx, Ny, ftemp_gpu, f_gpu, solid_node_gpu);
+        //stream_gpu<<< grid, threads >>>(Nx, Ny, ftemp_gpu, f_gpu, solid_node_gpu);
 
 		// enforces bounadry conditions
-		boundary_gpu<<< grid, threads >>>(Nx, Ny, Q, ux0, ftemp_gpu, f_gpu, solid_node_gpu);
+		//boundary_gpu<<< grid, threads >>>(Nx, Ny, Q, ux0, ftemp_gpu, f_gpu, solid_node_gpu);
 
 		// collision step
-        //stream_collide_periodic_gpu<<< grid, threads >>>(Nx, Ny, Q, rho_arr_gpu, ux_arr_gpu, uy_arr_gpu, f_gpu, ftemp_gpu, solid_node_gpu, tau, save);
-		collide_gpu<<< grid, threads >>>(Nx, Ny, Q, rho_arr_gpu, ux_arr_gpu, uy_arr_gpu, f_gpu, ftemp_gpu, solid_node_gpu, tau, save);
+        stream_collide_periodic_gpu<<< grid, threads >>>(Nx, Ny, Q, rho_arr_gpu, ux_arr_gpu, uy_arr_gpu, f_gpu, ftemp_gpu, solid_node_gpu, tau, save);
+		//collide_gpu<<< grid, threads >>>(Nx, Ny, Q, rho_arr_gpu, ux_arr_gpu, uy_arr_gpu, f_gpu, ftemp_gpu, solid_node_gpu, tau, save);
 
 		// write to file
 		if (save)
