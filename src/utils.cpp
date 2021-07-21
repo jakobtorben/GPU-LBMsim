@@ -57,6 +57,7 @@ void read_input(std::string fname, input_struct& input)
 	{
 		if (variable == "Nx")         file >> input.Nx;
 		if (variable == "Ny")         file >> input.Ny;
+        if (variable == "periodic")   file >> input.periodic;
 		if (variable == "reynolds")   file >> input.reynolds;
 		if (variable == "iterations") file >> input.iterations;
 		if (variable == "printstart") file >> input.printstart;
@@ -83,7 +84,7 @@ void timings(std::chrono::time_point<std::chrono::system_clock> start, input_str
 	// bandwidth has one read and one write for each distributuion value
 	double bandwidth = node_updates * 2 * Q * sizeof(float) / (runtime*GiB);
 
-	std::cout << "Elapsed runtime (s): " << runtime << '\n';
+	std::cout << "\nElapsed runtime (s): " << runtime << '\n';
 	std::cout << "Lattice updates per second (Mlups): " << updates << "\n";
 	std::cout << "Memory bandwidth (GiB/s): " << bandwidth << '\n';
 }

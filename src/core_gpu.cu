@@ -1,6 +1,6 @@
 #include "core_gpu.hpp"
 #include <iostream>  // delete later
-#include <stdio.h>
+#include <stdio.h>   // delete later
 #include <cuda.h>
 
 // D2Q9 streaming direction scheme
@@ -14,7 +14,8 @@ __device__ __forceinline__ size_t f_index(unsigned int Nx, unsigned int Ny, unsi
     //return (x + Nx*y)*9 + a;
 }
 
-__global__ void stream_collide_gpu(unsigned int Nx, unsigned int Ny, int Q, float* rho_arr, float* ux_arr, float* uy_arr, float ux0, float* f, float* ftemp, bool* solid_node, float tau, bool save)
+// channel flow boundary conditions
+__global__ void stream_collide_gpu(unsigned int Nx, unsigned int Ny, int Q, float* rho_arr, float* ux_arr, float* uy_arr, float ux0, float* f, bool* solid_node, float tau, bool save)
 {	
 	unsigned int y = blockIdx.y;
     unsigned int x = blockIdx.x*blockDim.x + threadIdx.x;
@@ -206,8 +207,8 @@ __global__ void stream_collide_gpu(unsigned int Nx, unsigned int Ny, int Q, floa
     }
 }
 
-
-__global__ void stream_collide_periodic_gpu(unsigned int Nx, unsigned int Ny, int Q, float* rho_arr, float* ux_arr, float* uy_arr, float* f, float* ftemp, bool* solid_node, float tau, bool save)
+// periodic boundary conditions
+__global__ void stream_collide_periodic_gpu(unsigned int Nx, unsigned int Ny, int Q, float* rho_arr, float* ux_arr, float* uy_arr, float* f, bool* solid_node, float tau, bool save)
 {	
 	unsigned int y = blockIdx.y;
     unsigned int x = blockIdx.x*blockDim.x + threadIdx.x;

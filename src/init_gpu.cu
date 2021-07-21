@@ -29,7 +29,7 @@ __global__ void read_geometry(int Nx, int Ny, bool* solid_node)
 }
 
 // apply initial conditions - flow to the right
-__global__ void initialise(int Nx, int Ny, int Q, float ux0, float* f, float* ftemp, float* rho_arr, float* ux_arr, float* uy_arr, bool* solid_node)
+__global__ void initialise(int Nx, int Ny, int Q, float ux0, float* f, float* rho_arr, float* ux_arr, float* uy_arr, bool* solid_node)
 {
     unsigned int y = blockIdx.y;
     unsigned int x = blockIdx.x*blockDim.x + threadIdx.x;
@@ -71,24 +71,11 @@ __global__ void initialise(int Nx, int Ny, int Q, float ux0, float* f, float* ft
         f[f_index(Nx, Ny, x, y, 6)] = w_rho2*(c + 3.*uxuy6 + c2*uxuy6*uxuy6);
         f[f_index(Nx, Ny, x, y, 7)] = w_rho2*(c + 3.*uxuy7 + c2*uxuy7*uxuy7);
         f[f_index(Nx, Ny, x, y, 8)] = w_rho2*(c + 3.*uxuy8 + c2*uxuy8*uxuy8);
-
-        // copy values to ftemp
-        ftemp[f_index(Nx, Ny, x, y, 0)] = f[f_index(Nx, Ny, x, y, 0)];
-        ftemp[f_index(Nx, Ny, x, y, 1)] = f[f_index(Nx, Ny, x, y, 1)];
-        ftemp[f_index(Nx, Ny, x, y, 2)] = f[f_index(Nx, Ny, x, y, 2)];
-        ftemp[f_index(Nx, Ny, x, y, 3)] = f[f_index(Nx, Ny, x, y, 3)];
-        ftemp[f_index(Nx, Ny, x, y, 4)] = f[f_index(Nx, Ny, x, y, 4)];
-        ftemp[f_index(Nx, Ny, x, y, 5)] = f[f_index(Nx, Ny, x, y, 5)];
-        ftemp[f_index(Nx, Ny, x, y, 6)] = f[f_index(Nx, Ny, x, y, 6)];
-        ftemp[f_index(Nx, Ny, x, y, 7)] = f[f_index(Nx, Ny, x, y, 7)];
-        ftemp[f_index(Nx, Ny, x, y, 8)] = f[f_index(Nx, Ny, x, y, 8)];
-
     }
     else
         // set distributions to zero at solids
         for (int a = 0; a < Q; a++)
         {
             f[f_index(Nx, Ny, x, y, a)] = 0;
-            ftemp[f_index(Nx, Ny, x, y, a)] = 0;
         }
 }
