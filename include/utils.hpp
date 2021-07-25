@@ -5,7 +5,6 @@ struct input_struct
 {
 	int Nx;
 	int Ny;
-    bool periodic;
 	float reynolds;
 	int iterations;
     int printstart;

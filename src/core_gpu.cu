@@ -15,7 +15,7 @@ __device__ __forceinline__ size_t f_index(unsigned int Nx, unsigned int Ny, unsi
 }
 
 // channel flow boundary conditions
-__global__ void stream_collide_gpu(unsigned int Nx, unsigned int Ny, int Q, float* rho_arr, float* ux_arr, float* uy_arr, float ux0, float* f, bool* solid_node, float tau, bool save)
+__global__ void stream_collide_gpu(unsigned int Nx, unsigned int Ny, int Q, float* rho_arr, float* ux_arr, float* uy_arr, float ux0, float* f, bool* solid_node, float tau, bool save, is_periodic<false>)
 {	
 	unsigned int y = blockIdx.y;
     unsigned int x = blockIdx.x*blockDim.x + threadIdx.x;
@@ -208,7 +208,7 @@ __global__ void stream_collide_gpu(unsigned int Nx, unsigned int Ny, int Q, floa
 }
 
 // periodic boundary conditions
-__global__ void stream_collide_periodic_gpu(unsigned int Nx, unsigned int Ny, int Q, float* rho_arr, float* ux_arr, float* uy_arr, float* f, bool* solid_node, float tau, bool save)
+__global__ void stream_collide_gpu(unsigned int Nx, unsigned int Ny, int Q, float* rho_arr, float* ux_arr, float* uy_arr, float ux0, float* f, bool* solid_node, float tau, bool save, is_periodic<true>)
 {	
 	unsigned int y = blockIdx.y;
     unsigned int x = blockIdx.x*blockDim.x + threadIdx.x;

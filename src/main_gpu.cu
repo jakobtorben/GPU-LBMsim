@@ -21,10 +21,13 @@ int main(int argc, char* argv[])
     inputfile = argv[1];
 	read_input(inputfile, input);
 
+    #ifndef PERIODIC
+        #define PERIODIC 0
+    #endif
+    constexpr bool periodic = PERIODIC;   // boundary condition defined from compile option
 	const int Q = 9;			    // number of velocity components
 	const unsigned int Nx = input.Nx;		// grid size x-direction
 	const unsigned int Ny = input.Ny;		// grid size y-direction
-    const bool periodic = input.periodic;   // boundary conditions
     float cs = sqrt(1./3.);			// speed of sound**2 D2Q9
     float mach = 0.1;               // mach number
 	float ux0 =  mach * cs;         // inital speed in x direction
@@ -102,10 +105,7 @@ int main(int argc, char* argv[])
 		save = input.save && (it > input.printstart) && (it % input.printstep == 0);
 
         // streaming and collision step combined to one kernel
-        if (periodic)
-            stream_collide_periodic_gpu<<< grid, threads >>>(Nx, Ny, Q, rho_arr_gpu, ux_arr_gpu, uy_arr_gpu, f_gpu, solid_node_gpu, tau, save);
-        else
-            stream_collide_gpu<<< grid, threads >>>(Nx, Ny, Q, rho_arr_gpu, ux_arr_gpu, uy_arr_gpu, ux0, f_gpu, solid_node_gpu, tau, save);
+        stream_collide_gpu<<< grid, threads >>>(Nx, Ny, Q, rho_arr_gpu, ux_arr_gpu, uy_arr_gpu, ux0, f_gpu, solid_node_gpu, tau, save, is_periodic<periodic>());
 
 		// write to file
 		if (save)
