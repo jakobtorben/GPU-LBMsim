@@ -1,10 +1,35 @@
-cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.18 FATAL_ERROR)
 
 project(LBM_sim LANGUAGES C CXX)
 
-# GoogleTest requires at least C++11
-set(CMAKE_CXX_STANDARD 11)
+# Set output folder
+set(EXECUTABLE_OUTPUT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/bin")
+
+# set up fictional target using an INTERFACE library
+add_library(LBM_sim INTERFACE)
+target_compile_features(LBM_sim INTERFACE cxx_std_11)
+target_include_directories(LBM_sim INTERFACE "include"
+  $<INSTALL_INTERFACE:include>)
+
 set(CMAKE_CXX_FLAGS "-O3")
+
+# Check for GPU support
+option(USE_GPU "Enabling GPU" ON)
+if(USE_GPU)
+    if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+        set(CMAKE_CUDA_ARCHITECTURES 61)
+    endif()
+    enable_language(CUDA)
+  set( CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS})
+endif()
+
+# Define default boundary type
+option(PERIODIC "Periodic boundary conditions" OFF)
+if(PERIODIC)
+    target_compile_definitions(LBM_sim INTERFACE PERIODIC=1)
+else()
+    target_compile_definitions(LBM_sim INTERFACE PERIODIC=0)
+endif()
 
 include(FetchContent)
 FetchContent_Declare(
@@ -15,19 +40,10 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
-# Check for GPU support
-#option(USE_GPU "Enabling GPU" ON)
-#if(USE_GPU)
-#  enable_language(CUDA)
-#  set( CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS})
-#endif()
-
 # Build Targets
 enable_testing()
 add_subdirectory(src)
 add_subdirectory(tests)
-include_directories(include)
-file(MAKE_DIRECTORY build/out ${directory})
-#add_subdirectory(doc)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/out ${directory})
 
 
