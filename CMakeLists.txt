@@ -31,6 +31,14 @@ else()
     target_compile_definitions(LBM_sim INTERFACE PERIODIC=0)
 endif()
 
+# Define option to activate LES
+option(LES "Large eddy simulation" ON)
+if(LES)
+    target_compile_definitions(LBM_sim INTERFACE LES=1)
+else()
+    target_compile_definitions(LBM_sim INTERFACE LES=0)
+endif()
+
 include(FetchContent)
 FetchContent_Declare(
   googletest

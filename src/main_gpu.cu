@@ -24,14 +24,19 @@ int main(int argc, char* argv[])
     #ifndef PERIODIC
         #define PERIODIC 0
     #endif
+    #ifndef LES
+        #define LES 1
+    #endif
+
     constexpr bool periodic = PERIODIC;   // boundary condition defined from compile option
+    constexpr bool les = LES;
 	const int Q = 9;			    // number of velocity components
 	const unsigned int Nx = input.Nx;		// grid size x-direction
 	const unsigned int Ny = input.Ny;		// grid size y-direction
     float cs = sqrt(1./3.);			// speed of sound**2 D2Q9
     float mach = 0.1;               // mach number
 	float ux0 =  mach * cs;         // inital speed in x direction
-    float kin_visc = ux0 * float(Ny/4-1) / input.reynolds; // Ny/4 is diameter of cylinder		
+    float kin_visc = ux0 * float(Ny/8-1) / input.reynolds; // Ny/4 is diameter of cylinder		
     float tau = (3. * kin_visc + 0.5); // collision timescale	
 
 	// print parameters
@@ -39,6 +44,9 @@ int main(int argc, char* argv[])
 	cout << "Boundary conditions: ";
     if (periodic) cout << "Periodic\n";
     else cout << "Channel flow\n";
+    cout << "Collision operator: ";
+    if (les) cout << "SRT-LES\n";
+    else cout << "SRT\n";
     cout << "Reynolds number: " << input.reynolds << "\n";
 	cout << "kinematic viscosity: " << kin_visc << "\n";
 	cout << "ux0: " << ux0 << "\n";
@@ -54,7 +62,7 @@ int main(int argc, char* argv[])
     cudaGetDeviceProperties(&deviceProp, deviceId);
     
     size_t gpu_free_mem, gpu_total_mem;
-    cudaMemGetInfo(&gpu_free_mem, &gpu_total_mem);
+    cudaMemGetInfo(&gpu_free_mem, &gpu_total_mem);  
 
     cout << "CUDA information\n";
     cout << "device number: " << deviceId << "\n";
@@ -105,8 +113,8 @@ int main(int argc, char* argv[])
 		save = input.save && (it > input.printstart) && (it % input.printstep == 0);
 
         // streaming and collision step combined to one kernel
-        stream_collide_gpu<<< grid, threads >>>(Nx, Ny, Q, rho_arr_gpu, ux_arr_gpu, uy_arr_gpu, ux0, f_gpu, solid_node_gpu, tau, save, is_periodic<periodic>());
-
+        stream_collide_gpu<<< grid, threads >>>(Nx, Ny, Q, rho_arr_gpu, ux_arr_gpu, uy_arr_gpu, ux0, f_gpu, solid_node_gpu, tau, save, is_periodic<periodic>(), use_LES<les>());
+        
 		// write to file
 		if (save)
 		{

@@ -18,14 +18,18 @@ __global__ void read_geometry(int Nx, int Ny, bool* solid_node)
     //printf("blockidx %d blockdimx %d threadidx %d blockidxy %d\n ", blockIdx.x, blockDim.x, threadIdx.x, blockIdx.y);
 
 	// define geometry
-	const int cx = Nx/3, cy = Ny/2;
-	const int radius = Ny/8;
+	const int cx = Nx/4, cy = Ny/2;
+	const int radius = Ny/16;
 
     int cord = x + Nx*y;
     float dx = std::abs(cx - (long int)x);
     float dy = std::abs(cy - (long int)y);
     float dist = std::sqrt(dx*dx + dy*dy);
-    solid_node[cord] = (dist < radius) ? 1 : 0;
+    if (( x > (cx - radius)) && (x < (cx + radius)) && (y > (cy - radius)) && (y < (cy + radius)))
+        solid_node[cord] = 1;
+    else
+        solid_node[cord] = 0;
+    // solid_node[cord] = (dist < radius) ? 1 : 0;
 }
 
 // apply initial conditions - flow to the right
