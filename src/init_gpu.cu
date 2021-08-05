@@ -26,7 +26,7 @@ __global__ void read_geometry(int Nx, int Ny, bool* solid_node)
     float dy = std::abs(cy - (long int)y);
     float dist = std::sqrt(dx*dx + dy*dy);
     if (( x > (cx - radius)) && (x < (cx + radius)) && (y > (cy - radius)) && (y < (cy + radius)))
-        solid_node[cord] = 0;
+        solid_node[cord] = 1;
     else
         solid_node[cord] = 0;
     // solid_node[cord] = (dist < radius) ? 1 : 0;
@@ -41,13 +41,15 @@ __global__ void read_geometry_lid(int Nx, int Ny, bool* solid_node)
     int cord = x + Nx*y;
     
     // define geometry
-	//const int cx = Nx/4, cy = Ny/2;
-	//const int radius = Ny/16;
+    /*
+	const int cx = Nx/4, cy = Ny/2;
+	const int radius = Ny/16;
     // square
-    //if (( x > (cx - radius)) && (x < (cx + radius)) && (y > (cy - radius)) && (y < (cy + radius)))
-    //    solid_node[cord] = 0;
-    // else
-    //    solid_node[cord] = 0;
+    if (( x > (cx - radius)) && (x < (cx + radius)) && (y > (cy - radius)) && (y < (cy + radius)))
+        solid_node[cord] = 1;
+    else
+        solid_node[cord] = 0;
+    */
 
     // cylinder
     //float dx = std::abs(cx - (long int)x);
@@ -65,6 +67,7 @@ __global__ void read_geometry_lid(int Nx, int Ny, bool* solid_node)
     //    solid_node[cord] = 1;  // north wall
     else 
         solid_node[cord] = 0;
+    
 }
 
 // apply initial conditions - flow to the right
@@ -76,7 +79,10 @@ __global__ void initialise(int Nx, int Ny, int Q, float ux0, float* f, float* rh
     int cord = x + Nx*y;
     // set density to 1.0 to keep as much precision as possible during calculation
     rho_arr[cord] = 1.;
-    ux_arr[cord] = ux0;
+    if (!solid_node[cord])
+        ux_arr[cord] = ux0;
+    else
+        ux_arr[cord] = 0;
     uy_arr[cord] = 0.;
 
 	float c2 = 9./2.;
@@ -133,6 +139,7 @@ __global__ void initialise_lid(int Nx, int Ny, int Q, float u0, float* f, float*
         ux_arr[cord] = u0;
     else
         ux_arr[cord] = 0;
+        
 
 	float c2 = 9./2.;
 

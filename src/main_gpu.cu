@@ -10,8 +10,6 @@
 
 using namespace std;
 
-
-
 int main(int argc, char* argv[])
 {
     // Read simulation inputs from file
@@ -20,15 +18,20 @@ int main(int argc, char* argv[])
     inputfile = argv[1];
 	read_input(inputfile, input);
 
+
     #ifndef PERIODIC
         #define PERIODIC 0
     #endif
     #ifndef LES
-        #define LES 1
+        #define LES 0
+    #endif
+    #ifndef MRT
+        #define MRT 1
     #endif
 
     constexpr bool periodic = PERIODIC;   // boundary condition defined from compile option
     constexpr bool les = LES;
+    constexpr bool mrt = MRT;
 	const int Q = 9;			    // number of velocity components
 	const int Nx = input.Nx;		// grid size x-direction
 	const int Ny = input.Ny;		// grid size y-direction
@@ -104,7 +107,6 @@ int main(int argc, char* argv[])
 
 	// apply initial conditions - flow to the rigth
 	//initialise<<< grid, threads >>>(Nx, Ny, Q, ux0, f_gpu, rho_arr_gpu, ux_arr_gpu, uy_arr_gpu, solid_node_gpu);
-    //initialise<<< grid, threads >>>(Nx, Ny, Q, ux0, f_gpu, ftemp_gpu, rho_arr_gpu, ux_arr_gpu, uy_arr_gpu, solid_node_gpu);
     initialise_lid<<< grid, threads >>>(Nx, Ny, Q, ux0, f_gpu, rho_arr_gpu, ux_arr_gpu, uy_arr_gpu);
 
     // simulation main loop
@@ -119,10 +121,10 @@ int main(int argc, char* argv[])
             cout << "Iteration: " << it << "\n";
 
         // streaming and collision step combined to one kernel
-        //stream_collide_gpu<<< grid, threads >>>(Nx, Ny, Q, rho_arr_gpu, ux_arr_gpu, uy_arr_gpu, ux0, f_gpu, solid_node_gpu, tau, save, is_periodic<periodic>(), use_LES<les>());
-        stream_collide_gpu_lid<<< grid, threads >>>(Nx, Ny, Q, rho_arr_gpu, ux_arr_gpu, uy_arr_gpu, ux0, f_gpu, solid_node_gpu, tau, save, is_periodic<periodic>(), use_LES<les>());
-        
-		// write to file
+        //stream_collide_gpu<<< grid, threads >>>(Nx, Ny, rho_arr_gpu, ux_arr_gpu, uy_arr_gpu, ux0, f_gpu, solid_node_gpu, tau, save, is_periodic<periodic>(), use_LES<les>());
+        stream_collide_gpu_lid<<< grid, threads >>>(Nx, Ny, rho_arr_gpu, ux_arr_gpu, uy_arr_gpu, ux0, f_gpu, solid_node_gpu, tau, save, is_periodic<periodic>(), use_LES<les>(), use_MRT<mrt>());
+		
+        // write to file
 		if (save)
 		{
             cout << "iteration: " << it << "\toutput: " << out_cnt << endl;

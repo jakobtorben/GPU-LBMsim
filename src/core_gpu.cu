@@ -15,8 +15,189 @@ __device__ __forceinline__ size_t f_index(unsigned int Nx, unsigned int Ny, unsi
     //return (x + Nx*y)*9 + a;
 }
 
+// lid driven cavity boudnary conditions - MRT
+__global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float u0, float* f, bool* solid_node, float tau, bool save, is_periodic<false>, use_LES<false>, use_MRT<true>)
+{	
+	int y = blockIdx.y;
+    int x = blockIdx.x*blockDim.x + threadIdx.x;
+
+	// don't stream beyond boundary nodes
+    int yn = (y>0) ? y-1 : -1;
+	int yp = (y<Ny-1) ? y+1 : -1;
+    int xn = (x>0) ? x-1 : -1;;
+    int xp = (x<Nx-1) ? x+1 : -1;
+
+    float f0=-1, f1=-1, f2=-1, f3=-1, f4=-1, f5=-1, f6=-1, f7=-1, f8=-1;
+
+                              f0 = f[f_index(Nx, Ny, x, y, 0)];
+    if (xn != -1            ) f1 = f[f_index(Nx, Ny, xn, y, 1)];
+    if (yn != -1            ) f2 = f[f_index(Nx, Ny, x, yn, 2)];
+    if (xp != -1            ) f3 = f[f_index(Nx, Ny, xp, y, 3)];
+    if (yp != -1            ) f4 = f[f_index(Nx, Ny, x, yp, 4)];
+    if (xn != -1 && yn != -1) f5 = f[f_index(Nx, Ny, xn, yn, 5)];
+    if (xp != -1 && yn != -1) f6 = f[f_index(Nx, Ny, xp, yn, 6)];
+    if (xp != -1 && yp != -1) f7 = f[f_index(Nx, Ny, xp, yp, 7)];
+    if (xn != -1 && yp != -1) f8 = f[f_index(Nx, Ny, xn, yp, 8)];
+
+	// bounceback on west wall
+    if (x == 0)
+	{
+        f1 = f3;
+        f5 = f7;
+        f8 = f6;
+	}
+
+    // bounceback at east wall
+    if (x == Nx-1)
+	{
+        f3 = f1;
+        f7 = f5;
+        f6 = f8;
+	}
+
+	// bounceback at south wall
+    if (y == 0)
+	{
+		f2 = f4;
+		f5 = f7;
+		f6 = f8;
+	}
+
+    // velocity BCs on north-side (lid) using bounceback on a moving wall
+    // as it has better stability than Ze & Hou
+    // eq (5.26)
+    // Krueger T, Kusumaatmaja H, Kuzmin A, Shardt O, Silva G, Viggen EM.
+    // The Lattice Boltzmann Method: Principles and Practice. Springer, 2016. 690 p.
+    if ((y == Ny - 1) && (x > 0) && (x < Nx-1))
+	{
+		float rho0 = f0 + f1 + f3 + 2.*(f2 + f5 + f6);
+		float ru = rho0*u0;
+		f4 = f2;
+        f7 = f5 - 1./6.*ru;
+		f8 = f6 + 1./6.*ru;
+	}
+
+    // corner of south-west inlet
+    if ((x == 0) && (y == 0))
+    {
+        // streaming from solid nodes, zero from standard bounceback
+        f6 = 0;
+        f8 = 0;
+    }
+
+	// 	corner of south-east outlet
+    if ((x == Nx-1) && (y == 0))
+    {
+        // streaming from solid nodes, zero from standard bounceback
+        f5 = 0;
+        f7 = 0;
+    }
+
+    // unknown distributions at singular corner points are
+    //  considered part of the lid and extrapolated it
+
+	// corner of north-west inlet
+    if ((x == 0) && (y == Ny-1))
+    {
+        f0 = f[f_index(Nx, Ny, 1, Ny-1, 0)];
+        f1 = f[f_index(Nx, Ny, 1, Ny-1, 1)];
+        f2 = f[f_index(Nx, Ny, 1, Ny-1, 2)];
+        f3 = f[f_index(Nx, Ny, 1, Ny-1, 3)];
+        f4 = f[f_index(Nx, Ny, 1, Ny-1, 4)];
+        f5 = f[f_index(Nx, Ny, 1, Ny-1, 5)];
+        f6 = f[f_index(Nx, Ny, 1, Ny-1, 6)];
+        f7 = f[f_index(Nx, Ny, 1, Ny-1, 7)];
+        f8 = f[f_index(Nx, Ny, 1, Ny-1, 8)];
+    }
+
+	// corner of north-east outlet
+    if ((x == Nx-1) && (y == Ny-1))
+    {
+
+        f0 = f[f_index(Nx, Ny, Nx-2, Ny-1, 0)];
+        f1 = f[f_index(Nx, Ny, Nx-2, Ny-1, 1)];
+        f2 = f[f_index(Nx, Ny, Nx-2, Ny-1, 2)];
+        f3 = f[f_index(Nx, Ny, Nx-2, Ny-1, 3)];
+        f4 = f[f_index(Nx, Ny, Nx-2, Ny-1, 4)];
+        f5 = f[f_index(Nx, Ny, Nx-2, Ny-1, 5)];
+        f6 = f[f_index(Nx, Ny, Nx-2, Ny-1, 6)];
+        f7 = f[f_index(Nx, Ny, Nx-2, Ny-1, 7)];
+        f8 = f[f_index(Nx, Ny, Nx-2, Ny-1, 8)];
+    }
+
+    // D. d’Humières. Multiple–relaxation–time lattice boltzmann models in three dimensions
+    // s0 = s3 = s5 = 1,  s1 = s2 = 1.4,  s4 = s6 = 1.2, s7 = s8 = omega = 1 / tau
+    float s1_2 = 1.4, s4_6 = 1.2, s7_8 = 1/tau;
+
+    float m[Q];  // distribution in moment space
+
+    if (!solid_node[x + Nx*y])
+    {
+
+        // transform distribution into moment space
+        for (int a = 0; a<Q; a++)
+        {
+            m[a] =  M[a*Q + 0]*f0 + M[a*Q + 1]*f1 + M[a*Q + 2]*f2 + M[a*Q + 3]*f3 + M[a*Q + 4]*f4
+                  + M[a*Q + 5]*f5 + M[a*Q + 6]*f6 + M[a*Q + 7]*f7 + M[a*Q + 8]*f8;
+        }
+
+        // store to memory only when needed for output
+        // m0 is density, m3 and m5 is x,y momentum and were calculated in previous loop
+        if (m[0] < 0 )
+        {
+            printf("Fatal error: negative density  at ( %d , %d )\n", x, y);
+            assert(0);
+        }
+        
+        if (save)
+        {
+            ux_arr[x + Nx*y] = m[3]/m[0];
+            uy_arr[x + Nx*y] = m[5]/m[0];
+            //rho_arr[cord] = m[0];
+        }
+        
+        // perform relaxation step in moment space
+        //f_+1 - f = -Minv * S * (m - meq)
+        // m_+1 = m - S*(m - meq) 
+        // S is a diagonal relaxation times matrix
+        // expressions for meq given in
+        //  Lallemand P, Luo L-S. Theory of the lattice Boltzmann method: dispersion,
+        // dissipation, isotropy, Galilean invariance, and stability. Physics Review E 2000; 61: 6546-6562.
+    
+        float momsq = m[3]*m[3] + m[5]*m[5];
+                                                              // meq is expression in ()
+        m[1] = m[1] - s1_2*(m[1] - (-2.*m[0] + 3.*momsq  ));  // e - energy
+        m[2] = m[2] - s1_2*(m[2] - (    m[0] - 3.*momsq  ));  // epsilon - energy squared
+        m[4] = m[4] - s4_6*(m[4] - (-m[3]                ));  // qx - energy flux
+        m[6] = m[6] - s4_6*(m[6] - (-m[5]                ));  // qy - energy flux
+        m[7] = m[7] - s7_8*(m[7] - (m[3]*m[3] - m[5]*m[5]));  // pxx - strain rate
+        m[8] = m[8] - s7_8*(m[8] - (m[3]*m[5]            ));  // pxy - strain rate
+
+        // transform back into distribution functions
+        // f = Minv*m_+1
+        for (int a = 0; a<Q; a++)
+            f[f_index(Nx, Ny, x, y, a)] =  Minv[a*Q + 0]*m[0] + Minv[a*Q + 1]*m[1] + Minv[a*Q + 2]*m[2]
+                                         + Minv[a*Q + 3]*m[3] + Minv[a*Q + 4]*m[4] + Minv[a*Q + 5]*m[5]
+                                         + Minv[a*Q + 6]*m[6] + Minv[a*Q + 7]*m[7] + Minv[a*Q + 8]*m[8];
+    
+    }
+    else
+    {
+        // Apply standard bounceback at boundaries
+        f[f_index(Nx, Ny, x, y, 1)] = f3;
+        f[f_index(Nx, Ny, x, y, 2)] = f4;
+        f[f_index(Nx, Ny, x, y, 3)] = f1;
+        f[f_index(Nx, Ny, x, y, 4)] = f2;
+        f[f_index(Nx, Ny, x, y, 5)] = f7;
+        f[f_index(Nx, Ny, x, y, 6)] = f8;
+        f[f_index(Nx, Ny, x, y, 7)] = f5;
+        f[f_index(Nx, Ny, x, y, 8)] = f6;
+    }
+}
+
+
 // lid driven cavity boudnary conditions
-__global__ void stream_collide_gpu_lid(int Nx, int Ny, int Q, float* rho_arr, float* ux_arr, float* uy_arr, float u0, float* f, bool* solid_node, float tau, bool save, is_periodic<false>, use_LES<false>)
+__global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float u0, float* f, bool* solid_node, float tau, bool save, is_periodic<false>, use_LES<false>, use_MRT<false>)
 {	
 	int y = blockIdx.y;
     int x = blockIdx.x*blockDim.x + threadIdx.x;
@@ -127,20 +308,20 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, int Q, float* rho_arr, fl
     
     float w0 = 4./9., w1 = 1./9., w2 = 1./36.;
 	float c2 = 9./2.;
-	float tauinv = 1/tau;
-	float one_tauinv = 1 - tauinv; // 1 - 1/tau
+	float omega = 1/tau;
+	float one_omega = 1 - omega; // 1 - 1/tau
 
     // compute density
     float rho = f0 + f1 + f2 + f3 + f4 + f5 + f6 + f7 + f8;
     if (rho < 0 )
     {
-    printf("fatal error: density < 0 at ( %d , %d )\n", x, y);
+    printf("Fatal error: Negative density at ( %d , %d )\n", x, y);
     assert(0);
     }
 
 
     int cord = x + Nx*y;
-    if (!solid_node[cord]) // (halfway-bounceback)
+    if (!solid_node[cord])
     {
         // compute velocities quantities
         float ux = (f1 + f5 + f8 - (f3 + f6 + f7))/rho;
@@ -154,9 +335,9 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, int Q, float* rho_arr, fl
             //rho_arr[cord] = rho;
         }
 
-        float w_rho0_tauinv = w0 * rho * tauinv;
-        float w_rho1_tauinv = w1 * rho * tauinv;
-        float w_rho2_tauinv = w2 * rho * tauinv;
+        float w_rho0_omega = w0 * rho * omega;
+        float w_rho1_omega = w1 * rho * omega;
+        float w_rho2_omega = w2 * rho * omega;
 
         float uxsq = ux * ux;
         float uysq = uy * uy;
@@ -168,19 +349,19 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, int Q, float* rho_arr, fl
         float uxuy8 =  ux - uy;
 
         float c = 1 - 1.5*usq;
-        f[f_index(Nx, Ny, x, y, 0)] = one_tauinv*f0 + w_rho0_tauinv*(c                           );
-        f[f_index(Nx, Ny, x, y, 1)] = one_tauinv*f1 + w_rho1_tauinv*(c + 3.*ux  + c2*uxsq        );
-        f[f_index(Nx, Ny, x, y, 2)] = one_tauinv*f2 + w_rho1_tauinv*(c + 3.*uy  + c2*uysq        );
-        f[f_index(Nx, Ny, x, y, 3)] = one_tauinv*f3 + w_rho1_tauinv*(c - 3.*ux  + c2*uxsq        );
-        f[f_index(Nx, Ny, x, y, 4)] = one_tauinv*f4 + w_rho1_tauinv*(c - 3.*uy  + c2*uysq        );
-        f[f_index(Nx, Ny, x, y, 5)] = one_tauinv*f5 + w_rho2_tauinv*(c + 3.*uxuy5 + c2*uxuy5*uxuy5);
-        f[f_index(Nx, Ny, x, y, 6)] = one_tauinv*f6 + w_rho2_tauinv*(c + 3.*uxuy6 + c2*uxuy6*uxuy6);
-        f[f_index(Nx, Ny, x, y, 7)] = one_tauinv*f7 + w_rho2_tauinv*(c + 3.*uxuy7 + c2*uxuy7*uxuy7);
-        f[f_index(Nx, Ny, x, y, 8)] = one_tauinv*f8 + w_rho2_tauinv*(c + 3.*uxuy8 + c2*uxuy8*uxuy8);
+        f[f_index(Nx, Ny, x, y, 0)] = one_omega*f0 + w_rho0_omega*(c                           );
+        f[f_index(Nx, Ny, x, y, 1)] = one_omega*f1 + w_rho1_omega*(c + 3.*ux  + c2*uxsq        );
+        f[f_index(Nx, Ny, x, y, 2)] = one_omega*f2 + w_rho1_omega*(c + 3.*uy  + c2*uysq        );
+        f[f_index(Nx, Ny, x, y, 3)] = one_omega*f3 + w_rho1_omega*(c - 3.*ux  + c2*uxsq        );
+        f[f_index(Nx, Ny, x, y, 4)] = one_omega*f4 + w_rho1_omega*(c - 3.*uy  + c2*uysq        );
+        f[f_index(Nx, Ny, x, y, 5)] = one_omega*f5 + w_rho2_omega*(c + 3.*uxuy5 + c2*uxuy5*uxuy5);
+        f[f_index(Nx, Ny, x, y, 6)] = one_omega*f6 + w_rho2_omega*(c + 3.*uxuy6 + c2*uxuy6*uxuy6);
+        f[f_index(Nx, Ny, x, y, 7)] = one_omega*f7 + w_rho2_omega*(c + 3.*uxuy7 + c2*uxuy7*uxuy7);
+        f[f_index(Nx, Ny, x, y, 8)] = one_omega*f8 + w_rho2_omega*(c + 3.*uxuy8 + c2*uxuy8*uxuy8);
     }
     else
     {
-        // Apply standard bounceback at boundaries (mid-grid)
+        // Apply standard bounceback at boundaries
         f[f_index(Nx, Ny, x, y, 1)] = f3;
         f[f_index(Nx, Ny, x, y, 2)] = f4;
         f[f_index(Nx, Ny, x, y, 3)] = f1;
@@ -194,7 +375,7 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, int Q, float* rho_arr, fl
 
 
 // lid driven cavity boudnary conditions - with LES
-__global__ void stream_collide_gpu_lid(int Nx, int Ny, int Q, float* rho_arr, float* ux_arr, float* uy_arr, float u0, float* f, bool* solid_node, float tau, bool save, is_periodic<false>, use_LES<true>)
+__global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float u0, float* f, bool* solid_node, float tau, bool save, is_periodic<false>, use_LES<true>,  use_MRT<false>)
 {	
 	int y = blockIdx.y;
     int x = blockIdx.x*blockDim.x + threadIdx.x;
@@ -376,23 +557,23 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, int Q, float* rho_arr, fl
 
         //printf("x %d y %d Q_xx %f, Q_yy %f, Q_xy %f tau %f, tau_turb %f, tau_eff %f \n", x, y, Q_xx*Q_xx, Q_yy*Q_yy, Q_xy*Q_xy, tau, tau_turb, tau_eff);
 
-        float tauinv = 1/tau_eff;
-	    float one_tauinv = 1 - tauinv; // 1 - 1/tau
+        float omega = 1/tau_eff;
+	    float one_omega = 1 - omega; // 1 - 1/tau
 
         // update distributions from LBM formula
-        f[f_index(Nx, Ny, x, y, 0)] = one_tauinv*f0 + feq0*tauinv;
-        f[f_index(Nx, Ny, x, y, 1)] = one_tauinv*f1 + feq1*tauinv;
-        f[f_index(Nx, Ny, x, y, 2)] = one_tauinv*f2 + feq2*tauinv;
-        f[f_index(Nx, Ny, x, y, 3)] = one_tauinv*f3 + feq3*tauinv;
-        f[f_index(Nx, Ny, x, y, 4)] = one_tauinv*f4 + feq4*tauinv;
-        f[f_index(Nx, Ny, x, y, 5)] = one_tauinv*f5 + feq5*tauinv;
-        f[f_index(Nx, Ny, x, y, 6)] = one_tauinv*f6 + feq6*tauinv;
-        f[f_index(Nx, Ny, x, y, 7)] = one_tauinv*f7 + feq7*tauinv;
-        f[f_index(Nx, Ny, x, y, 8)] = one_tauinv*f8 + feq8*tauinv;
+        f[f_index(Nx, Ny, x, y, 0)] = one_omega*f0 + feq0*omega;
+        f[f_index(Nx, Ny, x, y, 1)] = one_omega*f1 + feq1*omega;
+        f[f_index(Nx, Ny, x, y, 2)] = one_omega*f2 + feq2*omega;
+        f[f_index(Nx, Ny, x, y, 3)] = one_omega*f3 + feq3*omega;
+        f[f_index(Nx, Ny, x, y, 4)] = one_omega*f4 + feq4*omega;
+        f[f_index(Nx, Ny, x, y, 5)] = one_omega*f5 + feq5*omega;
+        f[f_index(Nx, Ny, x, y, 6)] = one_omega*f6 + feq6*omega;
+        f[f_index(Nx, Ny, x, y, 7)] = one_omega*f7 + feq7*omega;
+        f[f_index(Nx, Ny, x, y, 8)] = one_omega*f8 + feq8*omega;
     }
     else
     {
-        // Apply standard bounceback at all inner solids (on-grid)
+        // Apply standard bounceback at all inner solids
         f[f_index(Nx, Ny, x, y, 1)] = f3;
         f[f_index(Nx, Ny, x, y, 2)] = f4;
         f[f_index(Nx, Ny, x, y, 3)] = f1;
@@ -410,7 +591,7 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, int Q, float* rho_arr, fl
 
 
 // channel flow boundary conditions
-__global__ void stream_collide_gpu(int Nx, int Ny, int Q, float* rho_arr, float* ux_arr, float* uy_arr, float ux0, float* f, bool* solid_node, float tau, bool save, is_periodic<false>, use_LES<false>)
+__global__ void stream_collide_gpu(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float ux0, float* f, bool* solid_node, float tau, bool save, is_periodic<false>, use_LES<false>)
 {	
 	int y = blockIdx.y;
     int x = blockIdx.x*blockDim.x + threadIdx.x;
@@ -549,8 +730,8 @@ __global__ void stream_collide_gpu(int Nx, int Ny, int Q, float* rho_arr, float*
     
     float w0 = 4./9., w1 = 1./9., w2 = 1./36.;
 	float c2 = 9./2.;
-	float tauinv = 1/tau;
-	float one_tauinv = 1 - tauinv; // 1 - 1/tau
+	float omega = 1/tau;
+	float one_omega = 1 - omega; // 1 - 1/tau
 
     int cord = x + Nx*y;
     if (!solid_node[cord])
@@ -569,9 +750,9 @@ __global__ void stream_collide_gpu(int Nx, int Ny, int Q, float* rho_arr, float*
             //rho_arr[cord] = rho;
         }
 
-        float w_rho0_tauinv = w0 * rho * tauinv;
-        float w_rho1_tauinv = w1 * rho * tauinv;
-        float w_rho2_tauinv = w2 * rho * tauinv;
+        float w_rho0_omega = w0 * rho * omega;
+        float w_rho1_omega = w1 * rho * omega;
+        float w_rho2_omega = w2 * rho * omega;
 
         float uxsq = ux * ux;
         float uysq = uy * uy;
@@ -583,15 +764,15 @@ __global__ void stream_collide_gpu(int Nx, int Ny, int Q, float* rho_arr, float*
         float uxuy8 =  ux - uy;
 
         float c = 1 - 1.5*usq;
-        f[f_index(Nx, Ny, x, y, 0)] = one_tauinv*f0 + w_rho0_tauinv*(c                           );
-        f[f_index(Nx, Ny, x, y, 1)] = one_tauinv*f1 + w_rho1_tauinv*(c + 3.*ux  + c2*uxsq        );
-        f[f_index(Nx, Ny, x, y, 2)] = one_tauinv*f2 + w_rho1_tauinv*(c + 3.*uy  + c2*uysq        );
-        f[f_index(Nx, Ny, x, y, 3)] = one_tauinv*f3 + w_rho1_tauinv*(c - 3.*ux  + c2*uxsq        );
-        f[f_index(Nx, Ny, x, y, 4)] = one_tauinv*f4 + w_rho1_tauinv*(c - 3.*uy  + c2*uysq        );
-        f[f_index(Nx, Ny, x, y, 5)] = one_tauinv*f5 + w_rho2_tauinv*(c + 3.*uxuy5 + c2*uxuy5*uxuy5);
-        f[f_index(Nx, Ny, x, y, 6)] = one_tauinv*f6 + w_rho2_tauinv*(c + 3.*uxuy6 + c2*uxuy6*uxuy6);
-        f[f_index(Nx, Ny, x, y, 7)] = one_tauinv*f7 + w_rho2_tauinv*(c + 3.*uxuy7 + c2*uxuy7*uxuy7);
-        f[f_index(Nx, Ny, x, y, 8)] = one_tauinv*f8 + w_rho2_tauinv*(c + 3.*uxuy8 + c2*uxuy8*uxuy8);
+        f[f_index(Nx, Ny, x, y, 0)] = one_omega*f0 + w_rho0_omega*(c                           );
+        f[f_index(Nx, Ny, x, y, 1)] = one_omega*f1 + w_rho1_omega*(c + 3.*ux  + c2*uxsq        );
+        f[f_index(Nx, Ny, x, y, 2)] = one_omega*f2 + w_rho1_omega*(c + 3.*uy  + c2*uysq        );
+        f[f_index(Nx, Ny, x, y, 3)] = one_omega*f3 + w_rho1_omega*(c - 3.*ux  + c2*uxsq        );
+        f[f_index(Nx, Ny, x, y, 4)] = one_omega*f4 + w_rho1_omega*(c - 3.*uy  + c2*uysq        );
+        f[f_index(Nx, Ny, x, y, 5)] = one_omega*f5 + w_rho2_omega*(c + 3.*uxuy5 + c2*uxuy5*uxuy5);
+        f[f_index(Nx, Ny, x, y, 6)] = one_omega*f6 + w_rho2_omega*(c + 3.*uxuy6 + c2*uxuy6*uxuy6);
+        f[f_index(Nx, Ny, x, y, 7)] = one_omega*f7 + w_rho2_omega*(c + 3.*uxuy7 + c2*uxuy7*uxuy7);
+        f[f_index(Nx, Ny, x, y, 8)] = one_omega*f8 + w_rho2_omega*(c + 3.*uxuy8 + c2*uxuy8*uxuy8);
     }
     else
     {
@@ -608,7 +789,7 @@ __global__ void stream_collide_gpu(int Nx, int Ny, int Q, float* rho_arr, float*
 }
 
 // periodic boundary conditions
-__global__ void stream_collide_gpu(int Nx, int Ny, int Q, float* rho_arr, float* ux_arr, float* uy_arr, float ux0, float* f, bool* solid_node, float tau, bool save, is_periodic<true>, use_LES<false>)
+__global__ void stream_collide_gpu(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float ux0, float* f, bool* solid_node, float tau, bool save, is_periodic<true>, use_LES<false>)
 {	
 	int y = blockIdx.y;
     int x = blockIdx.x*blockDim.x + threadIdx.x;
@@ -632,8 +813,8 @@ __global__ void stream_collide_gpu(int Nx, int Ny, int Q, float* rho_arr, float*
     
     float w0 = 4./9., w1 = 1./9., w2 = 1./36.;
 	float c2 = 9./2.;
-	float tauinv = 1/tau;
-	float one_tauinv = 1 - tauinv; // 1 - 1/tau
+	float omega = 1/tau;
+	float one_omega = 1 - omega; // 1 - 1/tau
 
     int cord = x + Nx*y;
     if (!solid_node[cord])
@@ -651,9 +832,9 @@ __global__ void stream_collide_gpu(int Nx, int Ny, int Q, float* rho_arr, float*
             //rho_arr[cord] = rho;
         }
 
-        float w_rho0_tauinv = w0 * rho * tauinv;
-        float w_rho1_tauinv = w1 * rho * tauinv;
-        float w_rho2_tauinv = w2 * rho * tauinv;
+        float w_rho0_omega = w0 * rho * omega;
+        float w_rho1_omega = w1 * rho * omega;
+        float w_rho2_omega = w2 * rho * omega;
 
         float uxsq = ux * ux;
         float uysq = uy * uy;
@@ -665,15 +846,15 @@ __global__ void stream_collide_gpu(int Nx, int Ny, int Q, float* rho_arr, float*
         float uxuy8 =  ux - uy;
 
         float c = 1 - 1.5*usq;
-        f[f_index(Nx, Ny, x, y, 0)] = one_tauinv*f0 + w_rho0_tauinv*(c                           );
-        f[f_index(Nx, Ny, x, y, 1)] = one_tauinv*f1 + w_rho1_tauinv*(c + 3.*ux  + c2*uxsq        );
-        f[f_index(Nx, Ny, x, y, 2)] = one_tauinv*f2 + w_rho1_tauinv*(c + 3.*uy  + c2*uysq        );
-        f[f_index(Nx, Ny, x, y, 3)] = one_tauinv*f3 + w_rho1_tauinv*(c - 3.*ux  + c2*uxsq        );
-        f[f_index(Nx, Ny, x, y, 4)] = one_tauinv*f4 + w_rho1_tauinv*(c - 3.*uy  + c2*uysq        );
-        f[f_index(Nx, Ny, x, y, 5)] = one_tauinv*f5 + w_rho2_tauinv*(c + 3.*uxuy5 + c2*uxuy5*uxuy5);
-        f[f_index(Nx, Ny, x, y, 6)] = one_tauinv*f6 + w_rho2_tauinv*(c + 3.*uxuy6 + c2*uxuy6*uxuy6);
-        f[f_index(Nx, Ny, x, y, 7)] = one_tauinv*f7 + w_rho2_tauinv*(c + 3.*uxuy7 + c2*uxuy7*uxuy7);
-        f[f_index(Nx, Ny, x, y, 8)] = one_tauinv*f8 + w_rho2_tauinv*(c + 3.*uxuy8 + c2*uxuy8*uxuy8);
+        f[f_index(Nx, Ny, x, y, 0)] = one_omega*f0 + w_rho0_omega*(c                           );
+        f[f_index(Nx, Ny, x, y, 1)] = one_omega*f1 + w_rho1_omega*(c + 3.*ux  + c2*uxsq        );
+        f[f_index(Nx, Ny, x, y, 2)] = one_omega*f2 + w_rho1_omega*(c + 3.*uy  + c2*uysq        );
+        f[f_index(Nx, Ny, x, y, 3)] = one_omega*f3 + w_rho1_omega*(c - 3.*ux  + c2*uxsq        );
+        f[f_index(Nx, Ny, x, y, 4)] = one_omega*f4 + w_rho1_omega*(c - 3.*uy  + c2*uysq        );
+        f[f_index(Nx, Ny, x, y, 5)] = one_omega*f5 + w_rho2_omega*(c + 3.*uxuy5 + c2*uxuy5*uxuy5);
+        f[f_index(Nx, Ny, x, y, 6)] = one_omega*f6 + w_rho2_omega*(c + 3.*uxuy6 + c2*uxuy6*uxuy6);
+        f[f_index(Nx, Ny, x, y, 7)] = one_omega*f7 + w_rho2_omega*(c + 3.*uxuy7 + c2*uxuy7*uxuy7);
+        f[f_index(Nx, Ny, x, y, 8)] = one_omega*f8 + w_rho2_omega*(c + 3.*uxuy8 + c2*uxuy8*uxuy8);
     }
     else
     {
@@ -694,7 +875,7 @@ __global__ void stream_collide_gpu(int Nx, int Ny, int Q, float* rho_arr, float*
 // Krafczyk, Manfred & Tolke, J & Luo, Li-Shi. (2003).
 // Large eddy simulation with a multiple-relaxation-time LBE model.
 // INTERNATIONAL JOURNAL OF MODERN PHYSICS B. 17. 33-39. 10.1142/S0217979203017059. 
-__global__ void stream_collide_gpu(int Nx, int Ny, int Q, float* rho_arr, float* ux_arr, float* uy_arr, float ux0, float* f, bool* solid_node, float tau, bool save, is_periodic<true>, use_LES<true>)
+__global__ void stream_collide_gpu(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float ux0, float* f, bool* solid_node, float tau, bool save, is_periodic<true>, use_LES<true>)
 {	
 	int y = blockIdx.y;
     int x = blockIdx.x*blockDim.x + threadIdx.x;
@@ -780,23 +961,23 @@ __global__ void stream_collide_gpu(int Nx, int Ny, int Q, float* rho_arr, float*
 
         //printf("x %d y %d Q_xx %f, Q_yy %f, Q_xy %f tau %f, tau_turb %f, tau_eff %f \n", x, y, Q_xx*Q_xx, Q_yy*Q_yy, Q_xy*Q_xy, tau, tau_turb, tau_eff);
 
-        float tauinv = 1/tau_eff;
-	    float one_tauinv = 1 - tauinv; // 1 - 1/tau
+        float omega = 1/tau_eff;
+	    float one_omega = 1 - omega; // 1 - 1/tau
 
         // update distributions from LBM formula
-        f[f_index(Nx, Ny, x, y, 0)] = one_tauinv*f0 + feq0*tauinv;
-        f[f_index(Nx, Ny, x, y, 1)] = one_tauinv*f1 + feq1*tauinv;
-        f[f_index(Nx, Ny, x, y, 2)] = one_tauinv*f2 + feq2*tauinv;
-        f[f_index(Nx, Ny, x, y, 3)] = one_tauinv*f3 + feq3*tauinv;
-        f[f_index(Nx, Ny, x, y, 4)] = one_tauinv*f4 + feq4*tauinv;
-        f[f_index(Nx, Ny, x, y, 5)] = one_tauinv*f5 + feq5*tauinv;
-        f[f_index(Nx, Ny, x, y, 6)] = one_tauinv*f6 + feq6*tauinv;
-        f[f_index(Nx, Ny, x, y, 7)] = one_tauinv*f7 + feq7*tauinv;
-        f[f_index(Nx, Ny, x, y, 8)] = one_tauinv*f8 + feq8*tauinv;
+        f[f_index(Nx, Ny, x, y, 0)] = one_omega*f0 + feq0*omega;
+        f[f_index(Nx, Ny, x, y, 1)] = one_omega*f1 + feq1*omega;
+        f[f_index(Nx, Ny, x, y, 2)] = one_omega*f2 + feq2*omega;
+        f[f_index(Nx, Ny, x, y, 3)] = one_omega*f3 + feq3*omega;
+        f[f_index(Nx, Ny, x, y, 4)] = one_omega*f4 + feq4*omega;
+        f[f_index(Nx, Ny, x, y, 5)] = one_omega*f5 + feq5*omega;
+        f[f_index(Nx, Ny, x, y, 6)] = one_omega*f6 + feq6*omega;
+        f[f_index(Nx, Ny, x, y, 7)] = one_omega*f7 + feq7*omega;
+        f[f_index(Nx, Ny, x, y, 8)] = one_omega*f8 + feq8*omega;
     }
     else
     {
-        // Apply standard bounceback at all inner solids (on-grid)
+        // Apply standard bounceback at all inner solids
         f[f_index(Nx, Ny, x, y, 1)] = f3;
         f[f_index(Nx, Ny, x, y, 2)] = f4;
         f[f_index(Nx, Ny, x, y, 3)] = f1;
@@ -814,7 +995,7 @@ __global__ void stream_collide_gpu(int Nx, int Ny, int Q, float* rho_arr, float*
 // Krafczyk, Manfred & Tolke, J & Luo, Li-Shi. (2003).
 // Large eddy simulation with a multiple-relaxation-time LBE model.
 // INTERNATIONAL JOURNAL OF MODERN PHYSICS B. 17. 33-39. 10.1142/S0217979203017059. 
-__global__ void stream_collide_gpu(int Nx, int Ny, int Q, float* rho_arr, float* ux_arr, float* uy_arr, float ux0, float* f, bool* solid_node, float tau, bool save, is_periodic<false>, use_LES<true>)
+__global__ void stream_collide_gpu(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float ux0, float* f, bool* solid_node, float tau, bool save, is_periodic<false>, use_LES<true>)
 {	
 	int y = blockIdx.y;
     int x = blockIdx.x*blockDim.x + threadIdx.x;
@@ -1011,23 +1192,23 @@ __global__ void stream_collide_gpu(int Nx, int Ny, int Q, float* rho_arr, float*
 
         //printf("x %d y %d Q_xx %f, Q_yy %f, Q_xy %f tau %f, tau_turb %f, tau_eff %f \n", x, y, Q_xx*Q_xx, Q_yy*Q_yy, Q_xy*Q_xy, tau, tau_turb, tau_eff);
 
-        float tauinv = 1/tau_eff;
-	    float one_tauinv = 1 - tauinv; // 1 - 1/tau
+        float omega = 1/tau_eff;
+	    float one_omega = 1 - omega; // 1 - 1/tau
 
         // update distributions from LBM formula
-        f[f_index(Nx, Ny, x, y, 0)] = one_tauinv*f0 + feq0*tauinv;
-        f[f_index(Nx, Ny, x, y, 1)] = one_tauinv*f1 + feq1*tauinv;
-        f[f_index(Nx, Ny, x, y, 2)] = one_tauinv*f2 + feq2*tauinv;
-        f[f_index(Nx, Ny, x, y, 3)] = one_tauinv*f3 + feq3*tauinv;
-        f[f_index(Nx, Ny, x, y, 4)] = one_tauinv*f4 + feq4*tauinv;
-        f[f_index(Nx, Ny, x, y, 5)] = one_tauinv*f5 + feq5*tauinv;
-        f[f_index(Nx, Ny, x, y, 6)] = one_tauinv*f6 + feq6*tauinv;
-        f[f_index(Nx, Ny, x, y, 7)] = one_tauinv*f7 + feq7*tauinv;
-        f[f_index(Nx, Ny, x, y, 8)] = one_tauinv*f8 + feq8*tauinv;
+        f[f_index(Nx, Ny, x, y, 0)] = one_omega*f0 + feq0*omega;
+        f[f_index(Nx, Ny, x, y, 1)] = one_omega*f1 + feq1*omega;
+        f[f_index(Nx, Ny, x, y, 2)] = one_omega*f2 + feq2*omega;
+        f[f_index(Nx, Ny, x, y, 3)] = one_omega*f3 + feq3*omega;
+        f[f_index(Nx, Ny, x, y, 4)] = one_omega*f4 + feq4*omega;
+        f[f_index(Nx, Ny, x, y, 5)] = one_omega*f5 + feq5*omega;
+        f[f_index(Nx, Ny, x, y, 6)] = one_omega*f6 + feq6*omega;
+        f[f_index(Nx, Ny, x, y, 7)] = one_omega*f7 + feq7*omega;
+        f[f_index(Nx, Ny, x, y, 8)] = one_omega*f8 + feq8*omega;
     }
     else
     {
-        // Apply standard bounceback at all inner solids (on-grid)
+        // Apply standard bounceback at all inner solids
         f[f_index(Nx, Ny, x, y, 1)] = f3;
         f[f_index(Nx, Ny, x, y, 2)] = f4;
         f[f_index(Nx, Ny, x, y, 3)] = f1;
