@@ -196,6 +196,214 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
 }
 
 
+
+// lid driven cavity boudnary conditions - MRT-LES
+__global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float u0, float* f, bool* solid_node, float tau, bool save, is_periodic<false>, use_LES<true>, use_MRT<true>)
+{	
+	int y = blockIdx.y;
+    int x = blockIdx.x*blockDim.x + threadIdx.x;
+
+	// don't stream beyond boundary nodes
+    int yn = (y>0) ? y-1 : -1;
+	int yp = (y<Ny-1) ? y+1 : -1;
+    int xn = (x>0) ? x-1 : -1;;
+    int xp = (x<Nx-1) ? x+1 : -1;
+
+    float f0=-1, f1=-1, f2=-1, f3=-1, f4=-1, f5=-1, f6=-1, f7=-1, f8=-1;
+
+                              f0 = f[f_index(Nx, Ny, x, y, 0)];
+    if (xn != -1            ) f1 = f[f_index(Nx, Ny, xn, y, 1)];
+    if (yn != -1            ) f2 = f[f_index(Nx, Ny, x, yn, 2)];
+    if (xp != -1            ) f3 = f[f_index(Nx, Ny, xp, y, 3)];
+    if (yp != -1            ) f4 = f[f_index(Nx, Ny, x, yp, 4)];
+    if (xn != -1 && yn != -1) f5 = f[f_index(Nx, Ny, xn, yn, 5)];
+    if (xp != -1 && yn != -1) f6 = f[f_index(Nx, Ny, xp, yn, 6)];
+    if (xp != -1 && yp != -1) f7 = f[f_index(Nx, Ny, xp, yp, 7)];
+    if (xn != -1 && yp != -1) f8 = f[f_index(Nx, Ny, xn, yp, 8)];
+
+	// bounceback on west wall
+    if (x == 0)
+	{
+        f1 = f3;
+        f5 = f7;
+        f8 = f6;
+	}
+
+    // bounceback at east wall
+    if (x == Nx-1)
+	{
+        f3 = f1;
+        f7 = f5;
+        f6 = f8;
+	}
+
+	// bounceback at south wall
+    if (y == 0)
+	{
+		f2 = f4;
+		f5 = f7;
+		f6 = f8;
+	}
+
+    // velocity BCs on north-side (lid) using bounceback on a moving wall
+    // as it has better stability than Ze & Hou
+    // eq (5.26)
+    // Krueger T, Kusumaatmaja H, Kuzmin A, Shardt O, Silva G, Viggen EM.
+    // The Lattice Boltzmann Method: Principles and Practice. Springer, 2016. 690 p.
+    if ((y == Ny - 1) && (x > 0) && (x < Nx-1))
+	{
+		float rho0 = f0 + f1 + f3 + 2.*(f2 + f5 + f6);
+		float ru = rho0*u0;
+		f4 = f2;
+        f7 = f5 - 1./6.*ru;
+		f8 = f6 + 1./6.*ru;
+	}
+
+    // corner of south-west inlet
+    if ((x == 0) && (y == 0))
+    {
+        // streaming from solid nodes, zero from standard bounceback
+        f6 = 0;
+        f8 = 0;
+    }
+
+	// 	corner of south-east outlet
+    if ((x == Nx-1) && (y == 0))
+    {
+        // streaming from solid nodes, zero from standard bounceback
+        f5 = 0;
+        f7 = 0;
+    }
+
+    // unknown distributions at singular corner points are
+    //  considered part of the lid and extrapolated it
+
+	// corner of north-west inlet
+    if ((x == 0) && (y == Ny-1))
+    {
+        f0 = f[f_index(Nx, Ny, 1, Ny-1, 0)];
+        f1 = f[f_index(Nx, Ny, 1, Ny-1, 1)];
+        f2 = f[f_index(Nx, Ny, 1, Ny-1, 2)];
+        f3 = f[f_index(Nx, Ny, 1, Ny-1, 3)];
+        f4 = f[f_index(Nx, Ny, 1, Ny-1, 4)];
+        f5 = f[f_index(Nx, Ny, 1, Ny-1, 5)];
+        f6 = f[f_index(Nx, Ny, 1, Ny-1, 6)];
+        f7 = f[f_index(Nx, Ny, 1, Ny-1, 7)];
+        f8 = f[f_index(Nx, Ny, 1, Ny-1, 8)];
+    }
+
+	// corner of north-east outlet
+    if ((x == Nx-1) && (y == Ny-1))
+    {
+
+        f0 = f[f_index(Nx, Ny, Nx-2, Ny-1, 0)];
+        f1 = f[f_index(Nx, Ny, Nx-2, Ny-1, 1)];
+        f2 = f[f_index(Nx, Ny, Nx-2, Ny-1, 2)];
+        f3 = f[f_index(Nx, Ny, Nx-2, Ny-1, 3)];
+        f4 = f[f_index(Nx, Ny, Nx-2, Ny-1, 4)];
+        f5 = f[f_index(Nx, Ny, Nx-2, Ny-1, 5)];
+        f6 = f[f_index(Nx, Ny, Nx-2, Ny-1, 6)];
+        f7 = f[f_index(Nx, Ny, Nx-2, Ny-1, 7)];
+        f8 = f[f_index(Nx, Ny, Nx-2, Ny-1, 8)];
+    }
+
+    float m[Q];  // distribution in moment space
+
+    if (!solid_node[x + Nx*y])
+    {
+
+        // transform distribution into moment space
+        for (int a = 0; a<Q; a++)
+        {
+            m[a] =  M[a*Q + 0]*f0 + M[a*Q + 1]*f1 + M[a*Q + 2]*f2 + M[a*Q + 3]*f3 + M[a*Q + 4]*f4
+                  + M[a*Q + 5]*f5 + M[a*Q + 6]*f6 + M[a*Q + 7]*f7 + M[a*Q + 8]*f8;
+        }
+
+        // store to memory only when needed for output
+        // m0 is density, m3 and m5 is x,y momentum and were calculated in previous loop
+        if (m[0] < 0 )
+        {
+            printf("Fatal error: negative density  at ( %d , %d )\n", x, y);
+            assert(0);
+        }
+        
+        if (save)
+        {
+            ux_arr[x + Nx*y] = m[3]/m[0];
+            uy_arr[x + Nx*y] = m[5]/m[0];
+            //rho_arr[cord] = m[0];
+        }
+
+        // perform large eddy simulation
+        float C_smg = 0.10;  // Smagorinsky constant, sets length scale as fraction of mesh size
+
+        // LES equation (12-22), here adapted to D2Q9
+        // Krafczyk, Manfred & Tolke, J & Luo, Li-Shi. (2003).
+        // Large eddy simulation with a multiple-relaxation-time LBE model.
+        // INTERNATIONAL JOURNAL OF MODERN PHYSICS B. 17. 33-39. 10.1142/S0217979203017059. 
+
+        float Pxx = 1./6.*(m[1] + 4*m[0] + 3.*m[7]);
+        float Pyy = 1./6.*(m[1] + 4*m[0] - 3.*m[7]);
+        float Pxy = m[8];
+
+        float Q_xx = 1./3.*m[0] + m[3]*m[3] - Pxx;
+        float Q_yy = 1./3.*m[0] + m[5]*m[5] - Pyy;
+        float Q_xy = m[3]*m[5] - Pxy;
+
+        float Q_bar = std::sqrt(Q_xx*Q_xx + Q_yy*Q_yy + 2*Q_xy*Q_xy);
+
+        float tau_turb = 0.5 * ( std::sqrt(tau*tau + 18.*C_smg*C_smg*Q_bar) - tau );
+
+        float tau_eff = tau + tau_turb;  // effective viscosity
+
+        //printf("x %d y %d Q_xx %f, Q_yy %f, Q_xy %f tau %f, tau_turb %f, tau_eff %f \n", x, y, Q_xx*Q_xx, Q_yy*Q_yy, Q_xy*Q_xy, tau, tau_turb, tau_eff);
+
+        // D. d’Humières. Multiple–relaxation–time lattice boltzmann models in three dimensions
+        // s0 = s3 = s5 = 1,  s1 = s2 = 1.4,  s4 = s6 = 1.2, s7 = s8 = omega = 1 / tau
+        float s1_2 = 1.4, s4_6 = 1.2, s7_8 = 1/tau_eff;
+        
+        // perform relaxation step in moment space
+        //f_+1 - f = -Minv * S * (m - meq)
+        // m_+1 = m - S*(m - meq) 
+        // S is a diagonal relaxation times matrix
+        // expressions for meq given in
+        //  Lallemand P, Luo L-S. Theory of the lattice Boltzmann method: dispersion,
+        // dissipation, isotropy, Galilean invariance, and stability. Physics Review E 2000; 61: 6546-6562.
+    
+        float momsq = m[3]*m[3] + m[5]*m[5];
+                                                              // meq is expression in ()
+        m[1] = m[1] - s1_2*(m[1] - (-2.*m[0] + 3.*momsq  ));  // e - energy
+        m[2] = m[2] - s1_2*(m[2] - (    m[0] - 3.*momsq  ));  // epsilon - energy squared
+     // m[3] = m[3] - 1*(m[3] - m[3]) = m[3]                  // jx - x momentum   
+        m[4] = m[4] - s4_6*(m[4] - (-m[3]                ));  // qx - energy flux
+     // m[5] = m[5] - 1*(m[5] - m[5]) = m[5]                  // jy - y momentum 
+        m[6] = m[6] - s4_6*(m[6] - (-m[5]                ));  // qy - energy flux
+        m[7] = m[7] - s7_8*(m[7] - (m[3]*m[3] - m[5]*m[5]));  // pxx - strain rate
+        m[8] = m[8] - s7_8*(m[8] - (m[3]*m[5]            ));  // pxy - strain rate
+
+        // transform back into distribution functions
+        // f_+1 = Minv*m_+1
+        for (int a = 0; a<Q; a++)
+            f[f_index(Nx, Ny, x, y, a)] =  Minv[a*Q + 0]*m[0] + Minv[a*Q + 1]*m[1] + Minv[a*Q + 2]*m[2]
+                                         + Minv[a*Q + 3]*m[3] + Minv[a*Q + 4]*m[4] + Minv[a*Q + 5]*m[5]
+                                         + Minv[a*Q + 6]*m[6] + Minv[a*Q + 7]*m[7] + Minv[a*Q + 8]*m[8];
+    
+    }
+    else
+    {
+        // Apply standard bounceback at boundaries
+        f[f_index(Nx, Ny, x, y, 1)] = f3;
+        f[f_index(Nx, Ny, x, y, 2)] = f4;
+        f[f_index(Nx, Ny, x, y, 3)] = f1;
+        f[f_index(Nx, Ny, x, y, 4)] = f2;
+        f[f_index(Nx, Ny, x, y, 5)] = f7;
+        f[f_index(Nx, Ny, x, y, 6)] = f8;
+        f[f_index(Nx, Ny, x, y, 7)] = f5;
+        f[f_index(Nx, Ny, x, y, 8)] = f6;
+    }
+}
+
+
 // lid driven cavity boudnary conditions
 __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float u0, float* f, bool* solid_node, float tau, bool save, is_periodic<false>, use_LES<false>, use_MRT<false>)
 {	

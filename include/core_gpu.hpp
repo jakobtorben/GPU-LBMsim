@@ -17,33 +17,6 @@ template <> struct use_MRT<false> {};
 // obtained through Gram-Schmidt procedure
 // insert citation
 // m = M * f
-/*
-__constant__ int M[Q][Q]={
- { 1, 1, 1, 1, 1, 1, 1, 1, 1},
- {-4,-1,-1,-1,-1, 2, 2, 2, 2},
- { 4,-2,-2,-2,-2, 1, 1, 1, 1},
- { 0, 1, 0,-1, 0, 1,-1,-1, 1},
- { 0,-2, 0, 2, 0, 1,-1,-1, 1},
- { 0, 0, 1, 0,-1, 1, 1,-1,-1},
- { 0, 0,-2, 0, 2, 1, 1,-1,-1},
- { 0, 1,-1, 1,-1, 0, 0, 0, 0},
- { 0, 0, 0, 0, 0, 1,-1, 1,-1}
-};
-
-// f = m * Minv
-__constant__ float Minv[Q][Q]={
- { 1/9, -1/9 ,  1/9,   0,    0,     0,    0,    0,   0  },
- { 1/9, -1/36, -1/18,  1/6, -1/6,   0,    0,    1/4, 0  },
- { 1/9, -1/36, -1/18,  0,    0,     1/6, -1/6, -1/4, 0  },
- { 1/9, -1/36, -1/18, -1/6,  1/6,   0,    0,    1/4, 0  },
- { 1/9, -1/36, -1/18,  0,    0,    -1/6,  1/6, -1/4, 0  },
- { 1/9,  1/18,  1/36,  1/6,  1/12,  1/6,  1/12, 0,   1/4},
- { 1/9,  1/18,  1/36, -1/6, -1/12,  1/6,  1/12, 0,  -1/4},
- { 1/9,  1/18,  1/36, -1/6, -1/12, -1/6, -1/12, 0,   1/4},
- { 1/9,  1/18,  1/36,  1/6,  1/12, -1/6, -1/12, 0,  -1/4}
-};
-*/
-
 __constant__ int M[Q*Q]={
   1, 1, 1, 1, 1, 1, 1, 1, 1,
  -4,-1,-1,-1,-1, 2, 2, 2, 2,
@@ -58,15 +31,15 @@ __constant__ int M[Q*Q]={
 
 // f = m * Minv
 __constant__ float Minv[Q*Q] = {
-    1./9., -1./9. ,  1./9.,   0.,    0.,     0.,    0.,    0.,   0.,
-  1./9., -1./36., -1./18.,  1./6., -1./6.,   0.,    0.,    1./4., 0.  ,
-  1./9., -1./36., -1./18.,  0.,    0.,     1./6., -1./6., -1./4., 0.  ,
-  1./9., -1./36., -1./18., -1./6,  1./6,   0.,    0.,    1./4., 0.  ,
-  1./9., -1./36., -1./18.,  0.,    0.,    -1./6.,  1./6., -1./4., 0.  ,
-  1./9.,  1./18.,  1./36.,  1./6.,  1./12.,  1./6.,  1./12., 0.,   1./4.,
-  1./9.,  1./18.,  1./36., -1./6., -1./12.,  1./6.,  1./12., 0.,  -1./4.,
-  1./9.,  1./18.,  1./36., -1./6., -1./12., -1./6., -1./12., 0.,   1./4.,
-  1./9.,  1./18.,  1./36.,  1./6.,  1./12., -1./6., -1./12., 0.,  -1./4.
+  1./9., -1./9. ,  1./9.,   0.,     0.,      0.,     0.,     0.,    0.,
+  1./9., -1./36., -1./18.,  1./6., -1./6.,   0.,     0.,     1./4., 0.  ,
+  1./9., -1./36., -1./18.,  0.,     0.,      1./6., -1./6., -1./4., 0.  ,
+  1./9., -1./36., -1./18., -1./6,   1./6,    0.,     0.,     1./4., 0.  ,
+  1./9., -1./36., -1./18.,  0.,     0.,     -1./6.,  1./6., -1./4., 0.  ,
+  1./9.,  1./18.,  1./36.,  1./6.,  1./12.,  1./6.,  1./12., 0.,    1./4.,
+  1./9.,  1./18.,  1./36., -1./6., -1./12.,  1./6.,  1./12., 0.,   -1./4.,
+  1./9.,  1./18.,  1./36., -1./6., -1./12., -1./6., -1./12., 0.,    1./4.,
+  1./9.,  1./18.,  1./36.,  1./6.,  1./12., -1./6., -1./12., 0.,   -1./4.
 };
 
 
@@ -79,3 +52,4 @@ __global__ void stream_collide_gpu(int Nx, int Ny, int Q, float* rho_arr, float*
 __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float ux0, float* f, bool* solid_node, float tau, bool save, is_periodic<false>, use_LES<false>, use_MRT<false>);
 __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float u0, float* f, bool* solid_node, float tau, bool save, is_periodic<false>, use_LES<true>, use_MRT<false>);
 __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float u0, float* f, bool* solid_node, float tau, bool save, is_periodic<false>, use_LES<false>, use_MRT<true>);
+__global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float u0, float* f, bool* solid_node, float tau, bool save, is_periodic<false>, use_LES<true>, use_MRT<true>);
