@@ -23,20 +23,20 @@ if(USE_GPU)
   set( CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS})
 endif()
 
-# Define default boundary type
-option(PERIODIC "Periodic boundary conditions" OFF)
-if(PERIODIC)
-    target_compile_definitions(LBM_sim INTERFACE PERIODIC=1)
-else()
-    target_compile_definitions(LBM_sim INTERFACE PERIODIC=0)
-endif()
-
 # Define option to activate LES
 option(LES "Large eddy simulation" ON)
 if(LES)
     target_compile_definitions(LBM_sim INTERFACE LES=1)
 else()
     target_compile_definitions(LBM_sim INTERFACE LES=0)
+endif()
+
+# Define option to activate MRT
+option(MRT "Multi-Relaxation Time," ON)
+if(MRT)
+    target_compile_definitions(LBM_sim INTERFACE MRT=1)
+else()
+    target_compile_definitions(LBM_sim INTERFACE MRT=0)
 endif()
 
 include(FetchContent)

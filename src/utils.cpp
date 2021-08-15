@@ -79,11 +79,11 @@ void timings(std::chrono::time_point<std::chrono::system_clock> start, input_str
 
 	// calculate memory bandwidth xn GiB/s
 	int Q = 9;
-	double GiB = 1024. * 1024. * 1024.;
+	double GB = 1e9;
 	// bandwidth has one read and one write for each distributuion value
-	double bandwidth = node_updates * 2 * Q * sizeof(float) / (runtime*GiB);
+	double bandwidth = node_updates * 2 * Q * sizeof(float) / (runtime*GB);
 
 	std::cout << "\nElapsed runtime (s): " << runtime << '\n';
 	std::cout << "Lattice updates per second (Mlups): " << updates << "\n";
-	std::cout << "Memory bandwidth (GiB/s): " << bandwidth << '\n';
+	std::cout << "Memory bandwidth (GB/s): " << bandwidth << '\n';
 }

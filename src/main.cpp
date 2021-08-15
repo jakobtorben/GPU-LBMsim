@@ -19,38 +19,55 @@ int main(int argc, char* argv[])
     inputfile = argv[1];
 	read_input(inputfile, input);
 
-    const int Q = 9;			    // number of velocity components
-	const unsigned int Nx = input.Nx;		// grid size x-direction
-	const unsigned int Ny = input.Ny;		// grid size y-direction
+    // compile time options
+    #ifndef LES
+        #define LES 0
+    #endif
+    #ifndef MRT
+        #define MRT 1
+    #endif
+    constexpr bool les = LES;
+    constexpr bool mrt = MRT;
+
+	const int Q = 9;			    // number of velocity components
+	const int Nx = input.Nx;		// grid size x-direction
+	const int Ny = input.Ny;		// grid size y-direction
     float cs = sqrt(1./3.);			// speed of sound**2 D2Q9
     float mach = 0.1;               // mach number
-	float ux0 =  mach * cs;         // inital speed in x direction
-    float kin_visc = ux0 * float(Ny/4-1) / input.reynolds; // Ny/4 is diameter of cylinder		
-    float tau = (3. * kin_visc + 0.5); // collision timescale	
+	float u_lid =  mach * cs;         // lid speed
+    float kin_visc = u_lid * float(Nx-1) / input.reynolds; // Nx is length of slididng lid	
+    float tau = (3. * kin_visc + 0.5); // collision timescale
+    float omega = 1/tau;
 
-	// print constants
-	cout << "Nx: " << Nx << " Ny: " << Ny << endl;
-	cout << "Reynolds number: " << input.reynolds << endl;
-	cout << "kinematic viscosity: " << kin_visc << endl;
-	cout << "ux0: " << ux0 << endl;
-	cout << "mach number: " << mach << endl;
-	cout << "tau : " << tau << endl;
+	// print parameters
+	cout << "Nx: " << Nx << " Ny: " << Ny << "\n";
+	cout << "Boundary conditions: Lid driven cavity\n";
+    cout << "Collision operator: ";
+    if (mrt) cout << "MRT";
+    else cout << "SRT";
+    if (les) cout << "-LES\n";
+    else cout << "\n";
+    cout << "Reynolds number: " << input.reynolds << "\n";
+	cout << "kinematic viscosity: " << kin_visc << "\n";
+	cout << "u_lid: " << u_lid << "\n";
+	cout << "mach number: " << mach << "\n";
+	cout << "tau : " << tau << "\n\n";
 
-    // allocate grid
-    float* f          = new float[Nx * Ny * Q];
-    float* ftemp      = new float[Nx * Ny * Q];
-
-    bool*  solid_node = new bool [Nx * Ny];
-    float* ux_arr        = new float[Nx * Ny];
-    float* uy_arr        = new float[Nx * Ny];
-    float* rho_arr        = new float[Nx * Ny];
+    // allocate memory
+    const size_t arr_size = sizeof(float)*Nx*Ny;
+    const size_t f_size = sizeof(float)*Nx*Ny*Q;
+    float* f          = new float[f_size];
+    bool*  solid_node = new bool [arr_size];
+    float* ux_arr        = new float[arr_size];
+    float* uy_arr        = new float[arr_size];
+    float* rho_arr        = new float[arr_size];
 
 
 	// defines geometry
-	read_geometry(Nx, Ny, solid_node);
+	define_geometry(Nx, Ny, solid_node);
 
-	// apply initial conditions - flow to the rigth
-	initialise(Nx, Ny, Q, ux0, f, ftemp, rho_arr, ux_arr, uy_arr, solid_node);
+	// apply initial conditions - lid moving to the right
+	initialise_lid(Nx, Ny, Q, u_lid, f, rho_arr, ux_arr, uy_arr);
 
 	// simulation main loop
 	cout << "Running simulation...\n";
@@ -59,15 +76,10 @@ int main(int argc, char* argv[])
 	bool save = input.save;
 	while (it < input.iterations)
 	{
-		save = input.save && (it % input.printstep == 0);
-		// streaming step
-		stream_periodic(Nx, Ny, Q, ftemp, f, solid_node);
+		save = input.save && (it > input.printstart) && (it % input.printstep == 0);
 
-		// enforces bounadry conditions
-		//boundary(Nx, Ny, Q, ux0, ftemp, f, solid_node);
-
-		// collision step
-		collide(Nx, Ny, Q, rho_arr, ux_arr, uy_arr, f, ftemp, solid_node, tau, save);
+        // streaming and collision step combined to one kernel
+        stream_collide_gpu_lid(Nx, Ny, rho_arr, ux_arr, uy_arr, u_lid, f, solid_node, tau, omega, save, use_LES<les>(), use_MRT<mrt>());
 
 		// write to file
 		if (save)
@@ -82,7 +94,6 @@ int main(int argc, char* argv[])
 	timings(start, input);
 
 	delete[] f;
-	delete[] ftemp;
 	delete[] solid_node;
 	delete[] ux_arr;
 	delete[] uy_arr;
