@@ -3,6 +3,10 @@
 // define constants
 const int Q = 9;
 
+// define weights for feq calculation to avoid uunecessary divisions
+__constant__ float w0 = 4./9., w1 = 1./9., w2 = 1./36.;
+__constant__ float c2 = 9./2.;
+
 // helper types to differentiate compile time settings
 template <bool val=true> struct use_LES {};
 template <> struct use_LES<false> {};
@@ -41,7 +45,7 @@ __constant__ float Minv[Q*Q] = {
 
 
 // function declarations
-__global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float ux0, float* f, bool* solid_node, float tau, bool save, use_LES<false>, use_MRT<false>);
-__global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float u0, float* f, bool* solid_node, float tau, bool save, use_LES<true>, use_MRT<false>);
-__global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float u0, float* f, bool* solid_node, float tau, bool save, use_LES<false>, use_MRT<true>);
-__global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float u0, float* f, bool* solid_node, float tau, bool save, use_LES<true>, use_MRT<true>);
+__global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float u_lid, float* f, bool* solid_node, float tau, float omega, bool save, use_LES<false>, use_MRT<false>);
+__global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float u_lid, float* f, bool* solid_node, float tau, float omega, bool save, use_LES<true>, use_MRT<false>);
+__global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float u_lid, float* f, bool* solid_node, float tau, float omega, bool save, use_LES<false>, use_MRT<true>);
+__global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float u_lid, float* f, bool* solid_node, float tau, float omega, bool save, use_LES<true>, use_MRT<true>);
