@@ -83,8 +83,8 @@ int main(int argc, char* argv[])
     cudaMalloc((void**)&uy_arr_gpu, arr_size);
     cudaMalloc((void**)&rho_arr_gpu, arr_size);
     cudaMalloc((void**)&solid_node_gpu, arr_size);
-    float* ux_arr_host = new float[Nx * Ny];
-    float* uy_arr_host = new float[Nx * Ny];
+    float* ux_arr_host = new float[arr_size];
+    float* uy_arr_host = new float[arr_size];
     //float* rho_arr_host        = new float[Nx * Ny];
 
     // set threads to nVidia's warp size to run all threads concurrently 

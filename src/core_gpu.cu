@@ -1,6 +1,6 @@
 #include "core_gpu.hpp"
-#include <iostream>  // delete later
-#include <stdio.h>  // delete later
+
+#include <stdio.h>
 #include <cuda.h>
 #include <assert.h>
 
@@ -8,13 +8,6 @@
 // 6 2 5
 // 3 0 1
 // 7 4 8
-
-__device__ __forceinline__ size_t f_index(int Nx, int Ny, int x, int y, int a)
-{
-    // (structure of array memory layout)
-    return ((Ny*a + y)*Nx + x);
-}
-
 
 // lid driven cavity boudnary conditions
 __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float u_lid, float* f, bool* solid_node, float tau, float omega, bool save, use_LES<false>, use_MRT<false>)
@@ -30,15 +23,15 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
 
     float f0=-1, f1=-1, f2=-1, f3=-1, f4=-1, f5=-1, f6=-1, f7=-1, f8=-1;
 
-                              f0 = f[f_index(Nx, Ny, x, y, 0)];
-    if (xn != -1            ) f1 = f[f_index(Nx, Ny, xn, y, 1)];
-    if (yn != -1            ) f2 = f[f_index(Nx, Ny, x, yn, 2)];
-    if (xp != -1            ) f3 = f[f_index(Nx, Ny, xp, y, 3)];
-    if (yp != -1            ) f4 = f[f_index(Nx, Ny, x, yp, 4)];
-    if (xn != -1 && yn != -1) f5 = f[f_index(Nx, Ny, xn, yn, 5)];
-    if (xp != -1 && yn != -1) f6 = f[f_index(Nx, Ny, xp, yn, 6)];
-    if (xp != -1 && yp != -1) f7 = f[f_index(Nx, Ny, xp, yp, 7)];
-    if (xn != -1 && yp != -1) f8 = f[f_index(Nx, Ny, xn, yp, 8)];
+                              f0 = f[f_idx_gpu(Nx, Ny, x, y, 0)];
+    if (xn != -1            ) f1 = f[f_idx_gpu(Nx, Ny, xn, y, 1)];
+    if (yn != -1            ) f2 = f[f_idx_gpu(Nx, Ny, x, yn, 2)];
+    if (xp != -1            ) f3 = f[f_idx_gpu(Nx, Ny, xp, y, 3)];
+    if (yp != -1            ) f4 = f[f_idx_gpu(Nx, Ny, x, yp, 4)];
+    if (xn != -1 && yn != -1) f5 = f[f_idx_gpu(Nx, Ny, xn, yn, 5)];
+    if (xp != -1 && yn != -1) f6 = f[f_idx_gpu(Nx, Ny, xp, yn, 6)];
+    if (xp != -1 && yp != -1) f7 = f[f_idx_gpu(Nx, Ny, xp, yp, 7)];
+    if (xn != -1 && yp != -1) f8 = f[f_idx_gpu(Nx, Ny, xn, yp, 8)];
 
 	// bounceback on west wall
     if (x == 0)
@@ -68,7 +61,7 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
     // Krueger T, Kusumaatmaja H, Kuzmin A, Shardt O, Silva G, Viggen EM.
     // The Lattice Boltzmann Method: Principles and Practice. Springer, 2016.
     // eq (5.26
-    if ((y == Ny - 1) && (x > 0) && (x < Nx-1))
+    if ((y == Ny - 1)  && (x > 0) && (x < Nx-1))
 	{
 		float rho0 = f0 + f1 + f3 + 2.*(f2 + f5 + f6);
 		float ru = rho0*u_lid;
@@ -120,12 +113,11 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
     float rho = f0 + f1 + f2 + f3 + f4 + f5 + f6 + f7 + f8;
     if (rho < 0 )
     {
-    printf("Fatal error: Negative density at ( %d , %d )\n", x, y);
+    printf("Error: Negative density at ( %d , %d )\n", x, y);
     assert(0);
     }
 
-    int cord = x + Nx*y;
-    if (!solid_node[cord])
+    if (!solid_node[arr_idx(Nx, x, y)])
     {
         // compute velocities quantities
         float ux = (f1 + f5 + f8 - (f3 + f6 + f7))/rho;
@@ -134,9 +126,9 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
         // store to memory only when needed for output
         if (save)
         {
-            ux_arr[cord] = ux;
-            uy_arr[cord] = uy;
-            //rho_arr[cord] = rho;
+            ux_arr[arr_idx(Nx, x, y)] = ux;
+            uy_arr[arr_idx(Nx, x, y)] = uy;
+            //rho_arr[arr_idx(Nx, x, y)] = rho;
         }
 
         float uxsq = ux * ux;
@@ -153,28 +145,28 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
         float w_rho1_omega = w1 * rho * omega;
         float w_rho2_omega = w2 * rho * omega;
 
-        f[f_index(Nx, Ny, x, y, 0)] = one_omega*f0 + w_rho0_omega*(c                           );
-        f[f_index(Nx, Ny, x, y, 1)] = one_omega*f1 + w_rho1_omega*(c + 3.*ux  + c2*uxsq        );
-        f[f_index(Nx, Ny, x, y, 2)] = one_omega*f2 + w_rho1_omega*(c + 3.*uy  + c2*uysq        );
-        f[f_index(Nx, Ny, x, y, 3)] = one_omega*f3 + w_rho1_omega*(c - 3.*ux  + c2*uxsq        );
-        f[f_index(Nx, Ny, x, y, 4)] = one_omega*f4 + w_rho1_omega*(c - 3.*uy  + c2*uysq        );
-        f[f_index(Nx, Ny, x, y, 5)] = one_omega*f5 + w_rho2_omega*(c + 3.*uxuy5 + c2*uxuy5*uxuy5);
-        f[f_index(Nx, Ny, x, y, 6)] = one_omega*f6 + w_rho2_omega*(c + 3.*uxuy6 + c2*uxuy6*uxuy6);
-        f[f_index(Nx, Ny, x, y, 7)] = one_omega*f7 + w_rho2_omega*(c + 3.*uxuy7 + c2*uxuy7*uxuy7);
-        f[f_index(Nx, Ny, x, y, 8)] = one_omega*f8 + w_rho2_omega*(c + 3.*uxuy8 + c2*uxuy8*uxuy8);
+        f[f_idx_gpu(Nx, Ny, x, y, 0)] = one_omega*f0 + w_rho0_omega*(c                           );
+        f[f_idx_gpu(Nx, Ny, x, y, 1)] = one_omega*f1 + w_rho1_omega*(c + 3.*ux  + c2*uxsq        );
+        f[f_idx_gpu(Nx, Ny, x, y, 2)] = one_omega*f2 + w_rho1_omega*(c + 3.*uy  + c2*uysq        );
+        f[f_idx_gpu(Nx, Ny, x, y, 3)] = one_omega*f3 + w_rho1_omega*(c - 3.*ux  + c2*uxsq        );
+        f[f_idx_gpu(Nx, Ny, x, y, 4)] = one_omega*f4 + w_rho1_omega*(c - 3.*uy  + c2*uysq        );
+        f[f_idx_gpu(Nx, Ny, x, y, 5)] = one_omega*f5 + w_rho2_omega*(c + 3.*uxuy5 + c2*uxuy5*uxuy5);
+        f[f_idx_gpu(Nx, Ny, x, y, 6)] = one_omega*f6 + w_rho2_omega*(c + 3.*uxuy6 + c2*uxuy6*uxuy6);
+        f[f_idx_gpu(Nx, Ny, x, y, 7)] = one_omega*f7 + w_rho2_omega*(c + 3.*uxuy7 + c2*uxuy7*uxuy7);
+        f[f_idx_gpu(Nx, Ny, x, y, 8)] = one_omega*f8 + w_rho2_omega*(c + 3.*uxuy8 + c2*uxuy8*uxuy8);
     }
     else
     {
         // write bounced back distributions to memory
-        f[f_index(Nx, Ny, x, y, 0)] = f0;
-        f[f_index(Nx, Ny, x, y, 1)] = f1;
-        f[f_index(Nx, Ny, x, y, 2)] = f2;
-        f[f_index(Nx, Ny, x, y, 3)] = f3;
-        f[f_index(Nx, Ny, x, y, 4)] = f4;
-        f[f_index(Nx, Ny, x, y, 5)] = f5;
-        f[f_index(Nx, Ny, x, y, 6)] = f6;
-        f[f_index(Nx, Ny, x, y, 7)] = f7;
-        f[f_index(Nx, Ny, x, y, 8)] = f8;
+        f[f_idx_gpu(Nx, Ny, x, y, 0)] = f0;
+        f[f_idx_gpu(Nx, Ny, x, y, 1)] = f1;
+        f[f_idx_gpu(Nx, Ny, x, y, 2)] = f2;
+        f[f_idx_gpu(Nx, Ny, x, y, 3)] = f3;
+        f[f_idx_gpu(Nx, Ny, x, y, 4)] = f4;
+        f[f_idx_gpu(Nx, Ny, x, y, 5)] = f5;
+        f[f_idx_gpu(Nx, Ny, x, y, 6)] = f6;
+        f[f_idx_gpu(Nx, Ny, x, y, 7)] = f7;
+        f[f_idx_gpu(Nx, Ny, x, y, 8)] = f8;
     }
 }
 
@@ -194,15 +186,15 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
 
     float f0=-1, f1=-1, f2=-1, f3=-1, f4=-1, f5=-1, f6=-1, f7=-1, f8=-1;
 
-                              f0 = f[f_index(Nx, Ny, x, y, 0)];
-    if (xn != -1            ) f1 = f[f_index(Nx, Ny, xn, y, 1)];
-    if (yn != -1            ) f2 = f[f_index(Nx, Ny, x, yn, 2)];
-    if (xp != -1            ) f3 = f[f_index(Nx, Ny, xp, y, 3)];
-    if (yp != -1            ) f4 = f[f_index(Nx, Ny, x, yp, 4)];
-    if (xn != -1 && yn != -1) f5 = f[f_index(Nx, Ny, xn, yn, 5)];
-    if (xp != -1 && yn != -1) f6 = f[f_index(Nx, Ny, xp, yn, 6)];
-    if (xp != -1 && yp != -1) f7 = f[f_index(Nx, Ny, xp, yp, 7)];
-    if (xn != -1 && yp != -1) f8 = f[f_index(Nx, Ny, xn, yp, 8)];
+                              f0 = f[f_idx_gpu(Nx, Ny, x, y, 0)];
+    if (xn != -1            ) f1 = f[f_idx_gpu(Nx, Ny, xn, y, 1)];
+    if (yn != -1            ) f2 = f[f_idx_gpu(Nx, Ny, x, yn, 2)];
+    if (xp != -1            ) f3 = f[f_idx_gpu(Nx, Ny, xp, y, 3)];
+    if (yp != -1            ) f4 = f[f_idx_gpu(Nx, Ny, x, yp, 4)];
+    if (xn != -1 && yn != -1) f5 = f[f_idx_gpu(Nx, Ny, xn, yn, 5)];
+    if (xp != -1 && yn != -1) f6 = f[f_idx_gpu(Nx, Ny, xp, yn, 6)];
+    if (xp != -1 && yp != -1) f7 = f[f_idx_gpu(Nx, Ny, xp, yp, 7)];
+    if (xn != -1 && yp != -1) f8 = f[f_idx_gpu(Nx, Ny, xn, yp, 8)];
 
     
 	// bounceback on west wall
@@ -283,12 +275,11 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
     float rho = f0 + f1 + f2 + f3 + f4 + f5 + f6 + f7 + f8;
     if (rho < 0 )
     {
-    printf("Fatal error: negative density %f at ( %d , %d )\n", rho, x, y);
+    printf("Error: negative density %f at ( %d , %d )\n", rho, x, y);
     assert(0);
     }
 
-    int cord = x + Nx*y;
-       if (!solid_node[cord])
+       if (!solid_node[arr_idx(Nx, x, y)])
     {
 
         // compute velocities
@@ -298,9 +289,9 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
         // store to memory only when needed for output
         if (save)
         {
-            ux_arr[cord] = ux;
-            uy_arr[cord] = uy;
-            //rho_arr[cord] = rho;
+            ux_arr[arr_idx(Nx, x, y)] = ux;
+            uy_arr[arr_idx(Nx, x, y)] = uy;
+            //rho_arr[arr_idx(Nx, x, y)] = rho;
         }
 
         float uxsq = ux * ux;
@@ -329,12 +320,17 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
         float feq8 = w_rho2*(c + 3.*uxuy8 + c2*uxuy8*uxuy8);
 
         // perform large eddy simulation
-        float C_smg = 0.14;  // Smagorinsky constant, sets length scale as fraction of mesh size
+        float C_smg = 0.10;  // Smagorinsky constant, sets length scale as fraction of mesh size
+        // LES equation (12-22), here adapted to D2Q9 from:
+        // Krafczyk, Manfred & Tolke, J & Luo, Li-Shi. (2003).
+        // Large eddy simulation with a multiple-relaxation-time LBE model.
+        // INTERNATIONAL JOURNAL OF MODERN PHYSICS B. 17. 33-39. 10.1142/S0217979203017059.
 
-         // filtered momentum flux Q_ij defined from non-equilibrium distribution functions
-        // https://onlinelibrary.wiley.com/doi/full/10.1002/zamm.201900301#zamm201900301-bib-0038
-        // eq (45)
-        // Q_ij = sum[ex[a]*ey[a]*(f_a - feq_a)]
+        // filtered momentum flux Q_ij defined from non-equilibrium distribution functions
+        // Zhenhua Chai, Baochang Shi, Zhaoli Guo, Fumei Rong,
+        // Multiple-relaxation-time lattice Boltzmann model for generalized Newtonian fluid flows,
+        // Journal of Non-Newtonian Fluid Mechanics, Volume 166, Issues 5–6, 2011,
+        // eq (18): Q_ij = sum[ex[a]*ey[a]*(f_a - feq_a)]
         float Q_xx = (f1-feq1) + (f3-feq3) + (f5-feq5) + (f6-feq6) + (f7-feq7) + (f8-feq8);
         float Q_yy = (f2-feq2) + (f4-feq4) + (f5-feq5) + (f6-feq6) + (f7-feq7) + (f8-feq8);
         float Q_xy = (f5-feq5) - (f6-feq6) + (f7-feq7) - (f8-feq8);
@@ -346,34 +342,32 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
 
         float tau_eff = tau + tau_turb;  // effective viscosity
 
-        //printf("x %d y %d Q_xx %f, Q_yy %f, Q_xy %f tau %f, tau_turb %f, tau_eff %f \n", x, y, Q_xx*Q_xx, Q_yy*Q_yy, Q_xy*Q_xy, tau, tau_turb, tau_eff);
-
         float omega_eff = 1/tau_eff;
 	    float one_omega_eff = 1 - omega_eff; // 1 - 1/tau
 
         // update distributions from LBM formula
-        f[f_index(Nx, Ny, x, y, 0)] = one_omega_eff*f0 + feq0*omega_eff;
-        f[f_index(Nx, Ny, x, y, 1)] = one_omega_eff*f1 + feq1*omega_eff;
-        f[f_index(Nx, Ny, x, y, 2)] = one_omega_eff*f2 + feq2*omega_eff;
-        f[f_index(Nx, Ny, x, y, 3)] = one_omega_eff*f3 + feq3*omega_eff;
-        f[f_index(Nx, Ny, x, y, 4)] = one_omega_eff*f4 + feq4*omega_eff;
-        f[f_index(Nx, Ny, x, y, 5)] = one_omega_eff*f5 + feq5*omega_eff;
-        f[f_index(Nx, Ny, x, y, 6)] = one_omega_eff*f6 + feq6*omega_eff;
-        f[f_index(Nx, Ny, x, y, 7)] = one_omega_eff*f7 + feq7*omega_eff;
-        f[f_index(Nx, Ny, x, y, 8)] = one_omega_eff*f8 + feq8*omega_eff;
+        f[f_idx_gpu(Nx, Ny, x, y, 0)] = one_omega_eff*f0 + feq0*omega_eff;
+        f[f_idx_gpu(Nx, Ny, x, y, 1)] = one_omega_eff*f1 + feq1*omega_eff;
+        f[f_idx_gpu(Nx, Ny, x, y, 2)] = one_omega_eff*f2 + feq2*omega_eff;
+        f[f_idx_gpu(Nx, Ny, x, y, 3)] = one_omega_eff*f3 + feq3*omega_eff;
+        f[f_idx_gpu(Nx, Ny, x, y, 4)] = one_omega_eff*f4 + feq4*omega_eff;
+        f[f_idx_gpu(Nx, Ny, x, y, 5)] = one_omega_eff*f5 + feq5*omega_eff;
+        f[f_idx_gpu(Nx, Ny, x, y, 6)] = one_omega_eff*f6 + feq6*omega_eff;
+        f[f_idx_gpu(Nx, Ny, x, y, 7)] = one_omega_eff*f7 + feq7*omega_eff;
+        f[f_idx_gpu(Nx, Ny, x, y, 8)] = one_omega_eff*f8 + feq8*omega_eff;
     }
     else
     {
         // write bounced back distributions to memory
-        f[f_index(Nx, Ny, x, y, 0)] = f0;
-        f[f_index(Nx, Ny, x, y, 1)] = f1;
-        f[f_index(Nx, Ny, x, y, 2)] = f2;
-        f[f_index(Nx, Ny, x, y, 3)] = f3;
-        f[f_index(Nx, Ny, x, y, 4)] = f4;
-        f[f_index(Nx, Ny, x, y, 5)] = f5;
-        f[f_index(Nx, Ny, x, y, 6)] = f6;
-        f[f_index(Nx, Ny, x, y, 7)] = f7;
-        f[f_index(Nx, Ny, x, y, 8)] = f8;
+        f[f_idx_gpu(Nx, Ny, x, y, 0)] = f0;
+        f[f_idx_gpu(Nx, Ny, x, y, 1)] = f1;
+        f[f_idx_gpu(Nx, Ny, x, y, 2)] = f2;
+        f[f_idx_gpu(Nx, Ny, x, y, 3)] = f3;
+        f[f_idx_gpu(Nx, Ny, x, y, 4)] = f4;
+        f[f_idx_gpu(Nx, Ny, x, y, 5)] = f5;
+        f[f_idx_gpu(Nx, Ny, x, y, 6)] = f6;
+        f[f_idx_gpu(Nx, Ny, x, y, 7)] = f7;
+        f[f_idx_gpu(Nx, Ny, x, y, 8)] = f8;
 
     }
 }
@@ -392,15 +386,15 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
 
     float f0=-1, f1=-1, f2=-1, f3=-1, f4=-1, f5=-1, f6=-1, f7=-1, f8=-1;
 
-                              f0 = f[f_index(Nx, Ny, x, y, 0)];
-    if (xn != -1            ) f1 = f[f_index(Nx, Ny, xn, y, 1)];
-    if (yn != -1            ) f2 = f[f_index(Nx, Ny, x, yn, 2)];
-    if (xp != -1            ) f3 = f[f_index(Nx, Ny, xp, y, 3)];
-    if (yp != -1            ) f4 = f[f_index(Nx, Ny, x, yp, 4)];
-    if (xn != -1 && yn != -1) f5 = f[f_index(Nx, Ny, xn, yn, 5)];
-    if (xp != -1 && yn != -1) f6 = f[f_index(Nx, Ny, xp, yn, 6)];
-    if (xp != -1 && yp != -1) f7 = f[f_index(Nx, Ny, xp, yp, 7)];
-    if (xn != -1 && yp != -1) f8 = f[f_index(Nx, Ny, xn, yp, 8)];
+                              f0 = f[f_idx_gpu(Nx, Ny, x, y, 0)];
+    if (xn != -1            ) f1 = f[f_idx_gpu(Nx, Ny, xn, y, 1)];
+    if (yn != -1            ) f2 = f[f_idx_gpu(Nx, Ny, x, yn, 2)];
+    if (xp != -1            ) f3 = f[f_idx_gpu(Nx, Ny, xp, y, 3)];
+    if (yp != -1            ) f4 = f[f_idx_gpu(Nx, Ny, x, yp, 4)];
+    if (xn != -1 && yn != -1) f5 = f[f_idx_gpu(Nx, Ny, xn, yn, 5)];
+    if (xp != -1 && yn != -1) f6 = f[f_idx_gpu(Nx, Ny, xp, yn, 6)];
+    if (xp != -1 && yp != -1) f7 = f[f_idx_gpu(Nx, Ny, xp, yp, 7)];
+    if (xn != -1 && yp != -1) f8 = f[f_idx_gpu(Nx, Ny, xn, yp, 8)];
 
 	// bounceback on west wall
     if (x == 0)
@@ -482,7 +476,7 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
 
     float m[Q];  // distribution in moment space
 
-    if (!solid_node[x + Nx*y])
+    if (!solid_node[arr_idx(Nx, x, y)])
     {
 
         // transform distribution into moment space
@@ -496,15 +490,15 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
         // m0 is density, m3 and m5 is x,y momentum and were calculated in previous loop
         if (m[0] < 0 )
         {
-            printf("Fatal error: negative density  at ( %d , %d )\n", x, y);
+            printf("Error: negative density  at ( %d , %d )\n", x, y);
             assert(0);
         }
         
         if (save)
         {
-            ux_arr[x + Nx*y] = m[3]/m[0];
-            uy_arr[x + Nx*y] = m[5]/m[0];
-            //rho_arr[cord] = m[0];
+            ux_arr[arr_idx(Nx, x, y)] = m[3]/m[0];
+            uy_arr[arr_idx(Nx, x, y)] = m[5]/m[0];
+            //rho_arr[arr_idx(Nx, x, y)] = m[0];
         }
         
         // perform relaxation step in moment space
@@ -530,7 +524,7 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
         // transform back into distribution functions
         // f = Minv*m_+1
         for (int a = 0; a<Q; a++)
-            f[f_index(Nx, Ny, x, y, a)] =  Minv[a*Q + 0]*m[0] + Minv[a*Q + 1]*m[1] + Minv[a*Q + 2]*m[2]
+            f[f_idx_gpu(Nx, Ny, x, y, a)] =  Minv[a*Q + 0]*m[0] + Minv[a*Q + 1]*m[1] + Minv[a*Q + 2]*m[2]
                                          + Minv[a*Q + 3]*m[3] + Minv[a*Q + 4]*m[4] + Minv[a*Q + 5]*m[5]
                                          + Minv[a*Q + 6]*m[6] + Minv[a*Q + 7]*m[7] + Minv[a*Q + 8]*m[8];
     
@@ -538,15 +532,15 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
     else
     {
         // write bounced back distributions to memory
-        f[f_index(Nx, Ny, x, y, 0)] = f0;
-        f[f_index(Nx, Ny, x, y, 1)] = f1;
-        f[f_index(Nx, Ny, x, y, 2)] = f2;
-        f[f_index(Nx, Ny, x, y, 3)] = f3;
-        f[f_index(Nx, Ny, x, y, 4)] = f4;
-        f[f_index(Nx, Ny, x, y, 5)] = f5;
-        f[f_index(Nx, Ny, x, y, 6)] = f6;
-        f[f_index(Nx, Ny, x, y, 7)] = f7;
-        f[f_index(Nx, Ny, x, y, 8)] = f8;
+        f[f_idx_gpu(Nx, Ny, x, y, 0)] = f0;
+        f[f_idx_gpu(Nx, Ny, x, y, 1)] = f1;
+        f[f_idx_gpu(Nx, Ny, x, y, 2)] = f2;
+        f[f_idx_gpu(Nx, Ny, x, y, 3)] = f3;
+        f[f_idx_gpu(Nx, Ny, x, y, 4)] = f4;
+        f[f_idx_gpu(Nx, Ny, x, y, 5)] = f5;
+        f[f_idx_gpu(Nx, Ny, x, y, 6)] = f6;
+        f[f_idx_gpu(Nx, Ny, x, y, 7)] = f7;
+        f[f_idx_gpu(Nx, Ny, x, y, 8)] = f8;
     }
 }
 
@@ -566,15 +560,15 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
 
     float f0=-1, f1=-1, f2=-1, f3=-1, f4=-1, f5=-1, f6=-1, f7=-1, f8=-1;
 
-                              f0 = f[f_index(Nx, Ny, x, y, 0)];
-    if (xn != -1            ) f1 = f[f_index(Nx, Ny, xn, y, 1)];
-    if (yn != -1            ) f2 = f[f_index(Nx, Ny, x, yn, 2)];
-    if (xp != -1            ) f3 = f[f_index(Nx, Ny, xp, y, 3)];
-    if (yp != -1            ) f4 = f[f_index(Nx, Ny, x, yp, 4)];
-    if (xn != -1 && yn != -1) f5 = f[f_index(Nx, Ny, xn, yn, 5)];
-    if (xp != -1 && yn != -1) f6 = f[f_index(Nx, Ny, xp, yn, 6)];
-    if (xp != -1 && yp != -1) f7 = f[f_index(Nx, Ny, xp, yp, 7)];
-    if (xn != -1 && yp != -1) f8 = f[f_index(Nx, Ny, xn, yp, 8)];
+                              f0 = f[f_idx_gpu(Nx, Ny, x, y, 0)];
+    if (xn != -1            ) f1 = f[f_idx_gpu(Nx, Ny, xn, y, 1)];
+    if (yn != -1            ) f2 = f[f_idx_gpu(Nx, Ny, x, yn, 2)];
+    if (xp != -1            ) f3 = f[f_idx_gpu(Nx, Ny, xp, y, 3)];
+    if (yp != -1            ) f4 = f[f_idx_gpu(Nx, Ny, x, yp, 4)];
+    if (xn != -1 && yn != -1) f5 = f[f_idx_gpu(Nx, Ny, xn, yn, 5)];
+    if (xp != -1 && yn != -1) f6 = f[f_idx_gpu(Nx, Ny, xp, yn, 6)];
+    if (xp != -1 && yp != -1) f7 = f[f_idx_gpu(Nx, Ny, xp, yp, 7)];
+    if (xn != -1 && yp != -1) f8 = f[f_idx_gpu(Nx, Ny, xn, yp, 8)];
 
 	// bounceback on west wall
     if (x == 0)
@@ -652,7 +646,7 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
 
     float m[Q];  // distribution in moment space
 
-    if (!solid_node[x + Nx*y])
+    if (!solid_node[arr_idx(Nx, x, y)])
     {
 
         // transform distribution into moment space
@@ -666,20 +660,19 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
         // m0 is density, m3 and m5 is x,y momentum and were calculated in previous loop
         if (m[0] < 0 )
         {
-            printf("Fatal error: negative density  at ( %d , %d )\n", x, y);
+            printf("Error: negative density  at ( %d , %d )\n", x, y);
             assert(0);
         }
         
         if (save)
         {
-            ux_arr[x + Nx*y] = m[3]/m[0];
-            uy_arr[x + Nx*y] = m[5]/m[0];
-            //rho_arr[cord] = m[0];
+            ux_arr[arr_idx(Nx, x, y)] = m[3]/m[0];
+            uy_arr[arr_idx(Nx, x, y)] = m[5]/m[0];
+            //rho_arr[arr_idx(Nx, x, y)] = m[0];
         }
 
         // perform large eddy simulation
         float C_smg = 0.10;  // Smagorinsky constant, sets length scale as fraction of mesh size
-
         // LES equation (12-22), here adapted to D2Q9
         // Krafczyk, Manfred & Tolke, J & Luo, Li-Shi. (2003).
         // Large eddy simulation with a multiple-relaxation-time LBE model.
@@ -726,7 +719,7 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
         // transform back into distribution functions
         // f_+1 = Minv*m_+1
         for (int a = 0; a<Q; a++)
-            f[f_index(Nx, Ny, x, y, a)] =  Minv[a*Q + 0]*m[0] + Minv[a*Q + 1]*m[1] + Minv[a*Q + 2]*m[2]
+            f[f_idx_gpu(Nx, Ny, x, y, a)] =  Minv[a*Q + 0]*m[0] + Minv[a*Q + 1]*m[1] + Minv[a*Q + 2]*m[2]
                                          + Minv[a*Q + 3]*m[3] + Minv[a*Q + 4]*m[4] + Minv[a*Q + 5]*m[5]
                                          + Minv[a*Q + 6]*m[6] + Minv[a*Q + 7]*m[7] + Minv[a*Q + 8]*m[8];
     
@@ -734,14 +727,14 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
     else
     {
         // write bounced back distributions to memory
-        f[f_index(Nx, Ny, x, y, 0)] = f0;
-        f[f_index(Nx, Ny, x, y, 1)] = f1;
-        f[f_index(Nx, Ny, x, y, 2)] = f2;
-        f[f_index(Nx, Ny, x, y, 3)] = f3;
-        f[f_index(Nx, Ny, x, y, 4)] = f4;
-        f[f_index(Nx, Ny, x, y, 5)] = f5;
-        f[f_index(Nx, Ny, x, y, 6)] = f6;
-        f[f_index(Nx, Ny, x, y, 7)] = f7;
-        f[f_index(Nx, Ny, x, y, 8)] = f8;
+        f[f_idx_gpu(Nx, Ny, x, y, 0)] = f0;
+        f[f_idx_gpu(Nx, Ny, x, y, 1)] = f1;
+        f[f_idx_gpu(Nx, Ny, x, y, 2)] = f2;
+        f[f_idx_gpu(Nx, Ny, x, y, 3)] = f3;
+        f[f_idx_gpu(Nx, Ny, x, y, 4)] = f4;
+        f[f_idx_gpu(Nx, Ny, x, y, 5)] = f5;
+        f[f_idx_gpu(Nx, Ny, x, y, 6)] = f6;
+        f[f_idx_gpu(Nx, Ny, x, y, 7)] = f7;
+        f[f_idx_gpu(Nx, Ny, x, y, 8)] = f8;
     }
 }

@@ -49,3 +49,15 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
 __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float u_lid, float* f, bool* solid_node, float tau, float omega, bool save, use_LES<true>, use_MRT<false>);
 __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float u_lid, float* f, bool* solid_node, float tau, float omega, bool save, use_LES<false>, use_MRT<true>);
 __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float u_lid, float* f, bool* solid_node, float tau, float omega, bool save, use_LES<true>, use_MRT<true>);
+
+__device__ __forceinline__ size_t f_idx_gpu(int Nx, int Ny, int x, int y, int a)
+{
+    // use structure of array memory layout to have coalesced memory access on GPU
+    // consecutive threads now access consecutive memory addresses
+    return ((Ny*a + y)*Nx + x);
+}
+
+__device__ __forceinline__ size_t arr_idx(int Nx, int x, int y)
+{
+    return x + Nx*y;
+}
