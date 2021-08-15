@@ -9,10 +9,10 @@
 // 3 0 1
 // 7 4 8
 
-__device__ __forceinline__ size_t f_index(unsigned int Nx, unsigned int Ny, unsigned int x, unsigned int y, unsigned int a)
+__device__ __forceinline__ size_t f_index(int Nx, int Ny, int x, int y, int a)
 {
+    // (structure of array memory layout)
     return ((Ny*a + y)*Nx + x);
-    //return (x + Nx*y)*9 + a;
 }
 
 // lid driven cavity boudnary conditions - MRT
@@ -63,11 +63,10 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
 		f6 = f8;
 	}
 
-    // velocity BCs on north-side (lid) using bounceback on a moving wall
-    // as it has better stability than Ze & Hou
-    // eq (5.26)
+    // velocity BCs on north-side (lid) using bounceback for a moving wall)
     // Krueger T, Kusumaatmaja H, Kuzmin A, Shardt O, Silva G, Viggen EM.
-    // The Lattice Boltzmann Method: Principles and Practice. Springer, 2016. 690 p.
+    // The Lattice Boltzmann Method: Principles and Practice. Springer, 2016.
+    // eq (5.26
     if ((y == Ny - 1) && (x > 0) && (x < Nx-1))
 	{
 		float rho0 = f0 + f1 + f3 + 2.*(f2 + f5 + f6);
@@ -77,52 +76,41 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
 		f8 = f6 + 1./6.*ru;
 	}
 
-    // corner of south-west inlet
-    if ((x == 0) && (y == 0))
-    {
-        // streaming from solid nodes, zero from standard bounceback
-        f6 = 0;
-        f8 = 0;
-    }
+    // corners need to be treated explicitly
+    // top corners are treated as part of resting wall and
+    // bounced back accordingly. Inactive directions that are
+    // streamed from solid are set to zero
 
-	// 	corner of south-east outlet
-    if ((x == Nx-1) && (y == 0))
+    // corner of north-west node
+    if ((x == 0) && (y == Ny-1))
     {
-        // streaming from solid nodes, zero from standard bounceback
+        f4 = f2;
+        f8 = f6;
         f5 = 0;
         f7 = 0;
     }
 
-    // unknown distributions at singular corner points are
-    //  considered part of the lid and extrapolated it
-
-	// corner of north-west inlet
-    if ((x == 0) && (y == Ny-1))
-    {
-        f0 = f[f_index(Nx, Ny, 1, Ny-1, 0)];
-        f1 = f[f_index(Nx, Ny, 1, Ny-1, 1)];
-        f2 = f[f_index(Nx, Ny, 1, Ny-1, 2)];
-        f3 = f[f_index(Nx, Ny, 1, Ny-1, 3)];
-        f4 = f[f_index(Nx, Ny, 1, Ny-1, 4)];
-        f5 = f[f_index(Nx, Ny, 1, Ny-1, 5)];
-        f6 = f[f_index(Nx, Ny, 1, Ny-1, 6)];
-        f7 = f[f_index(Nx, Ny, 1, Ny-1, 7)];
-        f8 = f[f_index(Nx, Ny, 1, Ny-1, 8)];
-    }
-
-	// corner of north-east outlet
+    // corner of north-east node
     if ((x == Nx-1) && (y == Ny-1))
     {
+        f4 = f2;
+        f7 = f5;
+        f6 = 0;
+        f8 = 0;
+    }
 
-        f0 = f[f_index(Nx, Ny, Nx-2, Ny-1, 0)];
-        f1 = f[f_index(Nx, Ny, Nx-2, Ny-1, 1)];
-        f2 = f[f_index(Nx, Ny, Nx-2, Ny-1, 2)];
-        f3 = f[f_index(Nx, Ny, Nx-2, Ny-1, 3)];
-        f4 = f[f_index(Nx, Ny, Nx-2, Ny-1, 4)];
-        f5 = f[f_index(Nx, Ny, Nx-2, Ny-1, 5)];
-        f6 = f[f_index(Nx, Ny, Nx-2, Ny-1, 6)];
-        f7 = f[f_index(Nx, Ny, Nx-2, Ny-1, 7)];
-        f8 = f[f_index(Nx, Ny, Nx-2, Ny-1, 8)];
+    // corner of south-west node
+    if ((x == 0) && (y == 0))
+    {
+        f6 = 0;
+        f8 = 0;
+    }
+
+	// 	corner of south-east node
+    if ((x == Nx-1) && (y == 0))
+    {
+        f5 = 0;
+        f7 = 0;
     }
 
     // D. d’Humières. Multiple–relaxation–time lattice boltzmann models in three dimensions
@@ -166,9 +154,12 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
     
         float momsq = m[3]*m[3] + m[5]*m[5];
                                                               // meq is expression in ()
+     // m[0] = m[0] - 1*(m[0] - m[0]) = m[0]                  // rho - density  
         m[1] = m[1] - s1_2*(m[1] - (-2.*m[0] + 3.*momsq  ));  // e - energy
         m[2] = m[2] - s1_2*(m[2] - (    m[0] - 3.*momsq  ));  // epsilon - energy squared
+     // m[3] = m[3] - 1*(m[3] - m[3]) = m[3]                  // jx - x momentum   
         m[4] = m[4] - s4_6*(m[4] - (-m[3]                ));  // qx - energy flux
+     // m[5] = m[5] - 1*(m[5] - m[5]) = m[5]                  // jy - y momentum 
         m[6] = m[6] - s4_6*(m[6] - (-m[5]                ));  // qy - energy flux
         m[7] = m[7] - s7_8*(m[7] - (m[3]*m[3] - m[5]*m[5]));  // pxx - strain rate
         m[8] = m[8] - s7_8*(m[8] - (m[3]*m[5]            ));  // pxy - strain rate
@@ -183,15 +174,16 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
     }
     else
     {
-        // Apply standard bounceback at boundaries
-        f[f_index(Nx, Ny, x, y, 1)] = f3;
-        f[f_index(Nx, Ny, x, y, 2)] = f4;
-        f[f_index(Nx, Ny, x, y, 3)] = f1;
-        f[f_index(Nx, Ny, x, y, 4)] = f2;
-        f[f_index(Nx, Ny, x, y, 5)] = f7;
-        f[f_index(Nx, Ny, x, y, 6)] = f8;
-        f[f_index(Nx, Ny, x, y, 7)] = f5;
-        f[f_index(Nx, Ny, x, y, 8)] = f6;
+        // write bounced back distributions to memory
+        f[f_index(Nx, Ny, x, y, 0)] = f0;
+        f[f_index(Nx, Ny, x, y, 1)] = f1;
+        f[f_index(Nx, Ny, x, y, 2)] = f2;
+        f[f_index(Nx, Ny, x, y, 3)] = f3;
+        f[f_index(Nx, Ny, x, y, 4)] = f4;
+        f[f_index(Nx, Ny, x, y, 5)] = f5;
+        f[f_index(Nx, Ny, x, y, 6)] = f6;
+        f[f_index(Nx, Ny, x, y, 7)] = f7;
+        f[f_index(Nx, Ny, x, y, 8)] = f8;
     }
 }
 
@@ -245,11 +237,10 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
 		f6 = f8;
 	}
 
-    // velocity BCs on north-side (lid) using bounceback on a moving wall
-    // as it has better stability than Ze & Hou
-    // eq (5.26)
+    // velocity BCs on north-side (lid) using bounceback for a moving wall)
     // Krueger T, Kusumaatmaja H, Kuzmin A, Shardt O, Silva G, Viggen EM.
-    // The Lattice Boltzmann Method: Principles and Practice. Springer, 2016. 690 p.
+    // The Lattice Boltzmann Method: Principles and Practice. Springer, 2016.
+    // eq (5.26
     if ((y == Ny - 1) && (x > 0) && (x < Nx-1))
 	{
 		float rho0 = f0 + f1 + f3 + 2.*(f2 + f5 + f6);
@@ -259,52 +250,41 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
 		f8 = f6 + 1./6.*ru;
 	}
 
-    // corner of south-west inlet
-    if ((x == 0) && (y == 0))
-    {
-        // streaming from solid nodes, zero from standard bounceback
-        f6 = 0;
-        f8 = 0;
-    }
+    // corners need to be treated explicitly
+    // top corners are treated as part of resting wall and
+    // bounced back accordingly. Inactive directions that are
+    // streamed from solid are set to zero
 
-	// 	corner of south-east outlet
-    if ((x == Nx-1) && (y == 0))
+    // corner of north-west node
+    if ((x == 0) && (y == Ny-1))
     {
-        // streaming from solid nodes, zero from standard bounceback
+        f4 = f2;
+        f8 = f6;
         f5 = 0;
         f7 = 0;
     }
 
-    // unknown distributions at singular corner points are
-    //  considered part of the lid and extrapolated it
-
-	// corner of north-west inlet
-    if ((x == 0) && (y == Ny-1))
-    {
-        f0 = f[f_index(Nx, Ny, 1, Ny-1, 0)];
-        f1 = f[f_index(Nx, Ny, 1, Ny-1, 1)];
-        f2 = f[f_index(Nx, Ny, 1, Ny-1, 2)];
-        f3 = f[f_index(Nx, Ny, 1, Ny-1, 3)];
-        f4 = f[f_index(Nx, Ny, 1, Ny-1, 4)];
-        f5 = f[f_index(Nx, Ny, 1, Ny-1, 5)];
-        f6 = f[f_index(Nx, Ny, 1, Ny-1, 6)];
-        f7 = f[f_index(Nx, Ny, 1, Ny-1, 7)];
-        f8 = f[f_index(Nx, Ny, 1, Ny-1, 8)];
-    }
-
-	// corner of north-east outlet
+    // corner of north-east node
     if ((x == Nx-1) && (y == Ny-1))
     {
+        f4 = f2;
+        f7 = f5;
+        f6 = 0;
+        f8 = 0;
+    }
 
-        f0 = f[f_index(Nx, Ny, Nx-2, Ny-1, 0)];
-        f1 = f[f_index(Nx, Ny, Nx-2, Ny-1, 1)];
-        f2 = f[f_index(Nx, Ny, Nx-2, Ny-1, 2)];
-        f3 = f[f_index(Nx, Ny, Nx-2, Ny-1, 3)];
-        f4 = f[f_index(Nx, Ny, Nx-2, Ny-1, 4)];
-        f5 = f[f_index(Nx, Ny, Nx-2, Ny-1, 5)];
-        f6 = f[f_index(Nx, Ny, Nx-2, Ny-1, 6)];
-        f7 = f[f_index(Nx, Ny, Nx-2, Ny-1, 7)];
-        f8 = f[f_index(Nx, Ny, Nx-2, Ny-1, 8)];
+    // corner of south-west node
+    if ((x == 0) && (y == 0))
+    {
+        f6 = 0;
+        f8 = 0;
+    }
+
+	// 	corner of south-east node
+    if ((x == Nx-1) && (y == 0))
+    {
+        f5 = 0;
+        f7 = 0;
     }
 
     float m[Q];  // distribution in moment space
@@ -372,6 +352,7 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
     
         float momsq = m[3]*m[3] + m[5]*m[5];
                                                               // meq is expression in ()
+     // m[0] = m[0] - 1*(m[0] - m[0]) = m[0]                  // rho - density  
         m[1] = m[1] - s1_2*(m[1] - (-2.*m[0] + 3.*momsq  ));  // e - energy
         m[2] = m[2] - s1_2*(m[2] - (    m[0] - 3.*momsq  ));  // epsilon - energy squared
      // m[3] = m[3] - 1*(m[3] - m[3]) = m[3]                  // jx - x momentum   
@@ -391,15 +372,16 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
     }
     else
     {
-        // Apply standard bounceback at boundaries
-        f[f_index(Nx, Ny, x, y, 1)] = f3;
-        f[f_index(Nx, Ny, x, y, 2)] = f4;
-        f[f_index(Nx, Ny, x, y, 3)] = f1;
-        f[f_index(Nx, Ny, x, y, 4)] = f2;
-        f[f_index(Nx, Ny, x, y, 5)] = f7;
-        f[f_index(Nx, Ny, x, y, 6)] = f8;
-        f[f_index(Nx, Ny, x, y, 7)] = f5;
-        f[f_index(Nx, Ny, x, y, 8)] = f6;
+        // write bounced back distributions to memory
+        f[f_index(Nx, Ny, x, y, 0)] = f0;
+        f[f_index(Nx, Ny, x, y, 1)] = f1;
+        f[f_index(Nx, Ny, x, y, 2)] = f2;
+        f[f_index(Nx, Ny, x, y, 3)] = f3;
+        f[f_index(Nx, Ny, x, y, 4)] = f4;
+        f[f_index(Nx, Ny, x, y, 5)] = f5;
+        f[f_index(Nx, Ny, x, y, 6)] = f6;
+        f[f_index(Nx, Ny, x, y, 7)] = f7;
+        f[f_index(Nx, Ny, x, y, 8)] = f8;
     }
 }
 
@@ -452,11 +434,10 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
 		f6 = f8;
 	}
 
-    // velocity BCs on north-side (lid) using bounceback on a moving wall
-    // as it has better stability than Ze & Hou
-    // eq (5.26)
+    // velocity BCs on north-side (lid) using bounceback for a moving wall)
     // Krueger T, Kusumaatmaja H, Kuzmin A, Shardt O, Silva G, Viggen EM.
-    // The Lattice Boltzmann Method: Principles and Practice. Springer, 2016. 690 p.
+    // The Lattice Boltzmann Method: Principles and Practice. Springer, 2016.
+    // eq (5.26
     if ((y == Ny - 1) && (x > 0) && (x < Nx-1))
 	{
 		float rho0 = f0 + f1 + f3 + 2.*(f2 + f5 + f6);
@@ -466,52 +447,41 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
 		f8 = f6 + 1./6.*ru;
 	}
 
-    // corner of south-west inlet
-    if ((x == 0) && (y == 0))
-    {
-        // streaming from solid nodes, zero from standard bounceback
-        f6 = 0;
-        f8 = 0;
-    }
+    // corners need to be treated explicitly
+    // top corners are treated as part of resting wall and
+    // bounced back accordingly. Inactive directions that are
+    // streamed from solid are set to zero
 
-	// 	corner of south-east outlet
-    if ((x == Nx-1) && (y == 0))
+    // corner of north-west node
+    if ((x == 0) && (y == Ny-1))
     {
-        // streaming from solid nodes, zero from standard bounceback
+        f4 = f2;
+        f8 = f6;
         f5 = 0;
         f7 = 0;
     }
 
-    // unknown distributions at singular corner points are
-    //  considered part of the lid and extrapolated it
-
-	// corner of north-west inlet
-    if ((x == 0) && (y == Ny-1))
-    {
-        f0 = f[f_index(Nx, Ny, 1, Ny-1, 0)];
-        f1 = f[f_index(Nx, Ny, 1, Ny-1, 1)];
-        f2 = f[f_index(Nx, Ny, 1, Ny-1, 2)];
-        f3 = f[f_index(Nx, Ny, 1, Ny-1, 3)];
-        f4 = f[f_index(Nx, Ny, 1, Ny-1, 4)];
-        f5 = f[f_index(Nx, Ny, 1, Ny-1, 5)];
-        f6 = f[f_index(Nx, Ny, 1, Ny-1, 6)];
-        f7 = f[f_index(Nx, Ny, 1, Ny-1, 7)];
-        f8 = f[f_index(Nx, Ny, 1, Ny-1, 8)];
-    }
-
-	// corner of north-east outlet
+    // corner of north-east node
     if ((x == Nx-1) && (y == Ny-1))
     {
+        f4 = f2;
+        f7 = f5;
+        f6 = 0;
+        f8 = 0;
+    }
 
-        f0 = f[f_index(Nx, Ny, Nx-2, Ny-1, 0)];
-        f1 = f[f_index(Nx, Ny, Nx-2, Ny-1, 1)];
-        f2 = f[f_index(Nx, Ny, Nx-2, Ny-1, 2)];
-        f3 = f[f_index(Nx, Ny, Nx-2, Ny-1, 3)];
-        f4 = f[f_index(Nx, Ny, Nx-2, Ny-1, 4)];
-        f5 = f[f_index(Nx, Ny, Nx-2, Ny-1, 5)];
-        f6 = f[f_index(Nx, Ny, Nx-2, Ny-1, 6)];
-        f7 = f[f_index(Nx, Ny, Nx-2, Ny-1, 7)];
-        f8 = f[f_index(Nx, Ny, Nx-2, Ny-1, 8)];
+    // corner of south-west node
+    if ((x == 0) && (y == 0))
+    {
+        f6 = 0;
+        f8 = 0;
+    }
+
+	// 	corner of south-east node
+    if ((x == Nx-1) && (y == 0))
+    {
+        f5 = 0;
+        f7 = 0;
     }
     
     float w0 = 4./9., w1 = 1./9., w2 = 1./36.;
@@ -526,7 +496,6 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
     printf("Fatal error: Negative density at ( %d , %d )\n", x, y);
     assert(0);
     }
-
 
     int cord = x + Nx*y;
     if (!solid_node[cord])
@@ -569,15 +538,16 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
     }
     else
     {
-        // Apply standard bounceback at boundaries
-        f[f_index(Nx, Ny, x, y, 1)] = f3;
-        f[f_index(Nx, Ny, x, y, 2)] = f4;
-        f[f_index(Nx, Ny, x, y, 3)] = f1;
-        f[f_index(Nx, Ny, x, y, 4)] = f2;
-        f[f_index(Nx, Ny, x, y, 5)] = f7;
-        f[f_index(Nx, Ny, x, y, 6)] = f8;
-        f[f_index(Nx, Ny, x, y, 7)] = f5;
-        f[f_index(Nx, Ny, x, y, 8)] = f6;
+        // write bounced back distributions to memory
+        f[f_index(Nx, Ny, x, y, 0)] = f0;
+        f[f_index(Nx, Ny, x, y, 1)] = f1;
+        f[f_index(Nx, Ny, x, y, 2)] = f2;
+        f[f_index(Nx, Ny, x, y, 3)] = f3;
+        f[f_index(Nx, Ny, x, y, 4)] = f4;
+        f[f_index(Nx, Ny, x, y, 5)] = f5;
+        f[f_index(Nx, Ny, x, y, 6)] = f6;
+        f[f_index(Nx, Ny, x, y, 7)] = f7;
+        f[f_index(Nx, Ny, x, y, 8)] = f8;
     }
 }
 
@@ -631,11 +601,10 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
 		f6 = f8;
 	}
 
-    // velocity BCs on north-side (lid) using bounceback on a moving wall
-    // as it has better stability than Ze & Hou
-    // eq (5.26)
+    // velocity BCs on north-side (lid) using bounceback for a moving wall)
     // Krueger T, Kusumaatmaja H, Kuzmin A, Shardt O, Silva G, Viggen EM.
-    // The Lattice Boltzmann Method: Principles and Practice. Springer, 2016. 690 p.
+    // The Lattice Boltzmann Method: Principles and Practice. Springer, 2016.
+    // eq (5.26
     if ((y == Ny - 1) && (x > 0) && (x < Nx-1))
 	{
 		float rho0 = f0 + f1 + f3 + 2.*(f2 + f5 + f6);
@@ -645,52 +614,41 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
 		f8 = f6 + 1./6.*ru;
 	}
 
-    // corner of south-west inlet
-    if ((x == 0) && (y == 0))
-    {
-        // streaming from solid nodes, zero from standard bounceback
-        f6 = 0;
-        f8 = 0;
-    }
+    // corners need to be treated explicitly
+    // top corners are treated as part of resting wall and
+    // bounced back accordingly. Inactive directions that are
+    // streamed from solid are set to zero
 
-	// 	corner of south-east outlet
-    if ((x == Nx-1) && (y == 0))
+    // corner of north-west node
+    if ((x == 0) && (y == Ny-1))
     {
-        // streaming from solid nodes, zero from standard bounceback
+        f4 = f2;
+        f8 = f6;
         f5 = 0;
         f7 = 0;
     }
 
-    // unknown distributions at singular corner points are
-    //  considered part of the lid and extrapolated it
-
-	// corner of north-west inlet
-    if ((x == 0) && (y == Ny-1))
-    {
-        f0 = f[f_index(Nx, Ny, 1, Ny-1, 0)];
-        f1 = f[f_index(Nx, Ny, 1, Ny-1, 1)];
-        f2 = f[f_index(Nx, Ny, 1, Ny-1, 2)];
-        f3 = f[f_index(Nx, Ny, 1, Ny-1, 3)];
-        f4 = f[f_index(Nx, Ny, 1, Ny-1, 4)];
-        f5 = f[f_index(Nx, Ny, 1, Ny-1, 5)];
-        f6 = f[f_index(Nx, Ny, 1, Ny-1, 6)];
-        f7 = f[f_index(Nx, Ny, 1, Ny-1, 7)];
-        f8 = f[f_index(Nx, Ny, 1, Ny-1, 8)];
-    }
-
-	// corner of north-east outlet
+    // corner of north-east node
     if ((x == Nx-1) && (y == Ny-1))
     {
+        f4 = f2;
+        f7 = f5;
+        f6 = 0;
+        f8 = 0;
+    }
 
-        f0 = f[f_index(Nx, Ny, Nx-2, Ny-1, 0)];
-        f1 = f[f_index(Nx, Ny, Nx-2, Ny-1, 1)];
-        f2 = f[f_index(Nx, Ny, Nx-2, Ny-1, 2)];
-        f3 = f[f_index(Nx, Ny, Nx-2, Ny-1, 3)];
-        f4 = f[f_index(Nx, Ny, Nx-2, Ny-1, 4)];
-        f5 = f[f_index(Nx, Ny, Nx-2, Ny-1, 5)];
-        f6 = f[f_index(Nx, Ny, Nx-2, Ny-1, 6)];
-        f7 = f[f_index(Nx, Ny, Nx-2, Ny-1, 7)];
-        f8 = f[f_index(Nx, Ny, Nx-2, Ny-1, 8)];
+    // corner of south-west node
+    if ((x == 0) && (y == 0))
+    {
+        f6 = 0;
+        f8 = 0;
+    }
+
+	// 	corner of south-east node
+    if ((x == Nx-1) && (y == 0))
+    {
+        f5 = 0;
+        f7 = 0;
     }
 
     // compute density
@@ -781,15 +739,16 @@ __global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux
     }
     else
     {
-        // Apply standard bounceback at all inner solids
-        f[f_index(Nx, Ny, x, y, 1)] = f3;
-        f[f_index(Nx, Ny, x, y, 2)] = f4;
-        f[f_index(Nx, Ny, x, y, 3)] = f1;
-        f[f_index(Nx, Ny, x, y, 4)] = f2;
-        f[f_index(Nx, Ny, x, y, 5)] = f7;
-        f[f_index(Nx, Ny, x, y, 6)] = f8;
-        f[f_index(Nx, Ny, x, y, 7)] = f5;
-        f[f_index(Nx, Ny, x, y, 8)] = f6;
+        // write bounced back distributions to memory
+        f[f_index(Nx, Ny, x, y, 0)] = f0;
+        f[f_index(Nx, Ny, x, y, 1)] = f1;
+        f[f_index(Nx, Ny, x, y, 2)] = f2;
+        f[f_index(Nx, Ny, x, y, 3)] = f3;
+        f[f_index(Nx, Ny, x, y, 4)] = f4;
+        f[f_index(Nx, Ny, x, y, 5)] = f5;
+        f[f_index(Nx, Ny, x, y, 6)] = f6;
+        f[f_index(Nx, Ny, x, y, 7)] = f7;
+        f[f_index(Nx, Ny, x, y, 8)] = f8;
 
     }
 }
