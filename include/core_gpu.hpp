@@ -4,9 +4,6 @@
 const int Q = 9;
 
 // helper types to differentiate compile time settings
-template <bool val=true> struct is_periodic {};
-template <> struct is_periodic<false> {};
-
 template <bool val=true> struct use_LES {};
 template <> struct use_LES<false> {};
 
@@ -44,12 +41,7 @@ __constant__ float Minv[Q*Q] = {
 
 
 // function declarations
-__global__ void stream_collide_gpu(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float ux0, float* f, bool* solid_node, float tau, bool save, is_periodic<false>, use_LES<false>);
-__global__ void stream_collide_gpu(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float ux0, float* f, bool* solid_node, float tau, bool save, is_periodic<true>, use_LES<false>);
-__global__ void stream_collide_gpu(int Nx, int Ny, int Q, float* rho_arr, float* ux_arr, float* uy_arr, float ux0, float* f, bool* solid_node, float tau, bool save, is_periodic<false>, use_LES<true>);
-__global__ void stream_collide_gpu(int Nx, int Ny, int Q, float* rho_arr, float* ux_arr, float* uy_arr, float ux0, float* f, bool* solid_node, float tau, bool save, is_periodic<true>, use_LES<true>);
-
-__global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float ux0, float* f, bool* solid_node, float tau, bool save, is_periodic<false>, use_LES<false>, use_MRT<false>);
-__global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float u0, float* f, bool* solid_node, float tau, bool save, is_periodic<false>, use_LES<true>, use_MRT<false>);
-__global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float u0, float* f, bool* solid_node, float tau, bool save, is_periodic<false>, use_LES<false>, use_MRT<true>);
-__global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float u0, float* f, bool* solid_node, float tau, bool save, is_periodic<false>, use_LES<true>, use_MRT<true>);
+__global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float ux0, float* f, bool* solid_node, float tau, bool save, use_LES<false>, use_MRT<false>);
+__global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float u0, float* f, bool* solid_node, float tau, bool save, use_LES<true>, use_MRT<false>);
+__global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float u0, float* f, bool* solid_node, float tau, bool save, use_LES<false>, use_MRT<true>);
+__global__ void stream_collide_gpu_lid(int Nx, int Ny, float* rho_arr, float* ux_arr, float* uy_arr, float u0, float* f, bool* solid_node, float tau, bool save, use_LES<true>, use_MRT<true>);

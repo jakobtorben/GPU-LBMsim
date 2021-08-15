@@ -19,37 +19,33 @@ int main(int argc, char* argv[])
 	read_input(inputfile, input);
 
 
-    #ifndef PERIODIC
-        #define PERIODIC 0
-    #endif
+    // compile time options
     #ifndef LES
         #define LES 0
     #endif
     #ifndef MRT
         #define MRT 1
     #endif
-
-    constexpr bool periodic = PERIODIC;   // boundary condition defined from compile option
     constexpr bool les = LES;
     constexpr bool mrt = MRT;
+
 	const int Q = 9;			    // number of velocity components
 	const int Nx = input.Nx;		// grid size x-direction
 	const int Ny = input.Ny;		// grid size y-direction
     float cs = sqrt(1./3.);			// speed of sound**2 D2Q9
     float mach = 0.1;               // mach number
 	float ux0 =  mach * cs;         // inital speed in x direction
-    //float kin_visc = ux0 * float(Ny/8-1) / input.reynolds; // Ny/8 is diameter of square
     float kin_visc = ux0 * float(Nx-1) / input.reynolds; // Nx is length of slididng lid	
     float tau = (3. * kin_visc + 0.5); // collision timescale	
 
 	// print parameters
 	cout << "Nx: " << Nx << " Ny: " << Ny << "\n";
-	cout << "Boundary conditions: ";
-    if (periodic) cout << "Periodic\n";
-    else cout << "Channel flow\n";
+	cout << "Boundary conditions: Lid driven cavity\n";
     cout << "Collision operator: ";
-    if (les) cout << "SRT-LES\n";
-    else cout << "SRT\n";
+    if (mrt) cout << "MRT";
+    else cout << "SRT";
+    if (les) cout << "-LES\n";
+    else cout << "\n";
     cout << "Reynolds number: " << input.reynolds << "\n";
 	cout << "kinematic viscosity: " << kin_visc << "\n";
 	cout << "ux0: " << ux0 << "\n";
@@ -72,17 +68,16 @@ int main(int argc, char* argv[])
     cout << "GPU name: " << deviceProp.name << "\n";
     cout << "compute capability: " << deviceProp.major << "." << deviceProp.minor << "\n";
     cout << "multiprocessor count: " << deviceProp.multiProcessorCount << "\n";
-    cout << "global memory: " << deviceProp.totalGlobalMem/(1024.*1024.) << " MiB\n";
-    cout << "free memory: " << gpu_free_mem/(1024.*1024.) << " MiB\n\n";
+    cout << "global memory: " << deviceProp.totalGlobalMem/(1e6) << " MB\n";
+    cout << "free memory: " << gpu_free_mem/(1e6) << " MB\n\n";
 
     // allocate memory
     const size_t arr_size = sizeof(float)*Nx*Ny;
     const size_t f_size = sizeof(float)*Nx*Ny*Q;
-    float *f_gpu, *ftemp_gpu; // remove ftemp if not ending up using it
+    float *f_gpu;
     float *ux_arr_gpu, *uy_arr_gpu, *rho_arr_gpu;
     bool *solid_node_gpu;
     cudaMalloc((void**)&f_gpu, f_size);
-    cudaMalloc((void**)&ftemp_gpu, f_size);  // remove ftemp if not ending up using it
     cudaMalloc((void**)&ux_arr_gpu, arr_size);
     cudaMalloc((void**)&uy_arr_gpu, arr_size);
     cudaMalloc((void**)&rho_arr_gpu, arr_size);
@@ -102,11 +97,9 @@ int main(int argc, char* argv[])
     dim3  threads(num_threads, 1, 1);
 
     // define geometry
-	//read_geometry<<< grid, threads >>>(Nx, Ny, solid_node_gpu);
-    read_geometry_lid<<< grid, threads >>>(Nx, Ny, solid_node_gpu);
+    define_geometry<<< grid, threads >>>(Nx, Ny, solid_node_gpu);
 
-	// apply initial conditions - flow to the rigth
-	//initialise<<< grid, threads >>>(Nx, Ny, Q, ux0, f_gpu, rho_arr_gpu, ux_arr_gpu, uy_arr_gpu, solid_node_gpu);
+	// apply initial conditions - lid moving to the right
     initialise_lid<<< grid, threads >>>(Nx, Ny, Q, ux0, f_gpu, rho_arr_gpu, ux_arr_gpu, uy_arr_gpu);
 
     // simulation main loop
@@ -117,12 +110,9 @@ int main(int argc, char* argv[])
 	while (it < input.iterations)
 	{
 		save = input.save && (it > input.printstart) && (it % input.printstep == 0);
-        if (it % input.printstep == 0)
-            cout << "Iteration: " << it << "\n";
 
         // streaming and collision step combined to one kernel
-        //stream_collide_gpu<<< grid, threads >>>(Nx, Ny, rho_arr_gpu, ux_arr_gpu, uy_arr_gpu, ux0, f_gpu, solid_node_gpu, tau, save, is_periodic<periodic>(), use_LES<les>());
-        stream_collide_gpu_lid<<< grid, threads >>>(Nx, Ny, rho_arr_gpu, ux_arr_gpu, uy_arr_gpu, ux0, f_gpu, solid_node_gpu, tau, save, is_periodic<periodic>(), use_LES<les>(), use_MRT<mrt>());
+        stream_collide_gpu_lid<<< grid, threads >>>(Nx, Ny, rho_arr_gpu, ux_arr_gpu, uy_arr_gpu, ux0, f_gpu, solid_node_gpu, tau, save, use_LES<les>(), use_MRT<mrt>());
 		
         // write to file
 		if (save)
@@ -141,7 +131,6 @@ int main(int argc, char* argv[])
 	timings(start, input);
 
 	cudaFree(f_gpu);
-    cudaFree(ftemp_gpu);  // delete later if not used?
 	cudaFree(solid_node_gpu);
 	cudaFree(ux_arr_gpu);
 	cudaFree(uy_arr_gpu);
