@@ -116,11 +116,11 @@ Iterations = 300 000
 
 
 #### X-velocity along vertical centerlilne 
-<img src="https://github.com/acse-2020/acse2020-acse9-finalreport-acse-jrt3817/blob/main/figures/velocity_validation_xvel.png" width="600">
+<img src="https://github.com/acse-2020/acse2020-acse9-finalreport-acse-jrt3817/blob/main/figures/velocity_validation_xvel.png" width="300">
 
 
 #### Y-velocity along horizontal centerlilne 
-<img src="https://github.com/acse-2020/acse2020-acse9-finalreport-acse-jrt3817/blob/main/figures/velocity_validation_yvel.png" width="600">
+<img src="https://github.com/acse-2020/acse2020-acse9-finalreport-acse-jrt3817/blob/main/figures/velocity_validation_yvel.png" width="300">
 
 
 ## Limitations
