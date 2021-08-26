@@ -13,7 +13,7 @@
 #include "utils.hpp"
 
 #ifndef LES
-    #define LES 0
+    #define LES 1
 #endif
 #ifndef MRT
     #define MRT 1
