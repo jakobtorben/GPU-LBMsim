@@ -11,7 +11,7 @@ target_compile_features(LBM_sim INTERFACE cxx_std_11)
 target_include_directories(LBM_sim INTERFACE "include"
   $<INSTALL_INTERFACE:include>)
 
-set(CMAKE_CXX_FLAGS "-O3")
+set(CMAKE_CXX_FLAGS "-O3 -march=native -flto -Wall")
 
 # Check for GPU support
 option(USE_GPU "Enabling GPU" ON)
@@ -39,19 +39,9 @@ else()
     target_compile_definitions(LBM_sim INTERFACE MRT=0)
 endif()
 
-include(FetchContent)
-FetchContent_Declare(
-  googletest
-  URL https://github.com/google/googletest/archive/609281088cfefc76f9d0ce82e1ff6c30cc3591e5.zip
-)
-# For Windows: Prevent overriding the parent project's compiler/linker settings
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(googletest)
 
 # Build Targets
-enable_testing()
 add_subdirectory(src)
-add_subdirectory(tests)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/out ${directory})
 
 
