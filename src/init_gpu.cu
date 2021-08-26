@@ -1,14 +1,98 @@
-#include <cmath>
+/* Mehtods for initialising the simulation on the GPU.
+ * 
+ * Filename: init_gpu.cu
+ * Author: Jakob Torben
+ * Created: 13.07.2021
+ * Last modified: 26.08.2021
+ * 
+ * This code is provided under the MIT license. See LICENSE.txt.
+ */
+
+#include <iostream>
+#include <sstream>
 #include <cuda.h>
 
 #include "init_gpu.hpp"
 #include "core_gpu.hpp"
 
+/**
+ * Initialisation and non dimensionalisation of simulation parameters.
+ * Using lattice units dx = dy = dt = 1, and lattice velocity c = dx/dy = 1
+ * Mach set to constant 0.1 to ensure stability, Reynolds number controls simulation
+ *
+ * @param[in] input parameters from inputfile
+ * @param[out] fname filename to save the outputs to
+ * @param[out] u_lid lid velocity
+ * @param[out] tau relaxation time
+ * @param[out] omega inverse relaxation time
+ */
+void initialise_simulation(input_struct input, std::string& fname, float& u_lid, float& tau, float& omega)
+{
 
+    if (input.Nx % num_threads != 0)
+        throw std::invalid_argument( "Nx must be a multiple of num_threads (32)" ); 
+
+    float cs = std::sqrt(1./3.);			// lattice speed of sound D2Q9
+    float mach = 0.1;               // lattice mach number
+	u_lid =  mach * cs;         // lid speed
+    float kin_visc = u_lid * float(input.Nx-1) / input.reynolds; // Nx-1 is length of slididng lid	
+    tau = (3. * kin_visc + 0.5); // relaxation time, ensures consistency with Navier-Stokes eq
+    omega = 1/tau;
+
+    // define output filename
+    std::stringstream stream;
+    stream << "LBM_sim_";
+    if (mrt) stream << "MRT"; else stream << "SRT";
+    if (les) stream << "_LES";
+    stream << "_Nx" << input.Nx << "_Ny" << input.Ny << "_Re"<< input.reynolds;
+    fname = stream.str();
+
+    // print simulation parameters
+	std::cout << "Nx: " << input.Nx << " Ny: " << input.Ny << "\n";
+	std::cout << "Boundary conditions: Lid driven cavity\n";
+    std::cout << "Collision operator: ";
+    if (mrt) std::cout << "MRT"; else std::cout << "SRT";
+    if (les) std::cout << "-LES\n"; else std::cout << "\n";
+    std::cout << "Reynolds number: " << input.reynolds << "\n";
+	std::cout << "kinematic viscosity: " << kin_visc << "\n";
+	std::cout << "u_lid: " << u_lid << "\n";
+	std::cout << "mach number: " << mach << "\n";
+	std::cout << "tau : " << tau << "\n\n";
+}
+
+/**
+ * Set up GPU and print the specifications of the device.
+ */
+void set_up_GPU()
+{
+    cudaSetDevice(0);
+    int deviceId = 0;
+    cudaGetDevice(&deviceId);
+
+    cudaDeviceProp deviceProp;
+    cudaGetDeviceProperties(&deviceProp, deviceId);
+    
+    size_t gpu_free_mem, gpu_total_mem;
+    cudaMemGetInfo(&gpu_free_mem, &gpu_total_mem);  
+
+    std::cout << "GPU specifications:\n";
+    std::cout << "GPU name: " << deviceProp.name << "\n";
+    std::cout << "compute capability: " << deviceProp.major << "." << deviceProp.minor << "\n";
+    std::cout << "multiprocessor count: " << deviceProp.multiProcessorCount << "\n";
+    std::cout << "global memory: " << deviceProp.totalGlobalMem/(1e6) << " MB\n";
+    std::cout << "free memory: " << gpu_free_mem/(1e6) << " MB\n\n";
+}
+
+/**
+ * Define the geometry of the fixed walls.
+ *
+ * @param[in] Nx, Ny domain size
+ * @param[out] solid_node array storing the position of solid nodes
+ */
 __global__ void define_geometry(int Nx, int Ny, bool* solid_node)
 {
+    int x = blockDim.x*blockIdx.x + threadIdx.x;
     int y = blockIdx.y;
-    int x = blockIdx.x*blockDim.x + threadIdx.x;
 
     // set fixed walls to solid boundaries
     if (x == 0)
@@ -18,15 +102,22 @@ __global__ void define_geometry(int Nx, int Ny, bool* solid_node)
     else if (y == 0)
         solid_node[arr_idx(Nx, x, y)] = 1;  // south wall
     else 
-        solid_node[arr_idx(Nx, x, y)] = 0;
-    
+        solid_node[arr_idx(Nx, x, y)] = 0;    
 }
 
-// Set inital distributions to equilibrium values for - lid driven cavity
-__global__ void initialise_lid(int Nx, int Ny, int Q, float u_lid, float* f, float* rho_arr, float* ux_arr, float* uy_arr)
+/**
+ * Set inital distributions to equilibrium values for lid driven cavity
+ *
+ * @param[in] Nx, Ny domain size
+ * @param[in] u_lid, lid velocity
+ * @param[out] f array storing the distributions
+ * @param[out] rho_arr array storing the density
+ * @param[out] ux_arr, uy_arr arrays storing the velocities
+ */
+__global__ void initialise_distributions(int Nx, int Ny, float u_lid, float* f, float* rho_arr, float* ux_arr, float* uy_arr)
 {
+    int x = blockDim.x*blockIdx.x + threadIdx.x;
     int y = blockIdx.y;
-    int x = blockIdx.x*blockDim.x + threadIdx.x;
 
     // set density to 1.0 to keep as much precision as possible during calculation
     rho_arr[arr_idx(Nx, x, y)] = 1.;
@@ -50,8 +141,6 @@ __global__ void initialise_lid(int Nx, int Ny, int Q, float u_lid, float* f, flo
     float uxuy8 =  ux - uy;
 
     float c = 1 - 1.5*usq;
-    float w0 = 4./9., w1 = 1./9., w2 = 1./36.;
-    float c2 = 9./2.;
     float w_rho0 = w0 * rho;
     float w_rho1 = w1 * rho;
     float w_rho2 = w2 * rho;
