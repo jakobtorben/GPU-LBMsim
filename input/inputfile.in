@@ -1,0 +1,7 @@
+Nx 512
+Ny 512
+reynolds 1000
+iterations 300000
+printstart 298000
+printstep 1000
+save 1
