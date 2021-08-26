@@ -105,7 +105,7 @@ Documentation has automatically been generated using the Doxygen tool [4], and c
 
 ## Validation
 
-Since streaming, boundary conditions and collisions are combined into a single function/kernel for performance reasons, unittests are not possible. Instead, the implementation is validated against a numerical solution in literature [5]. The plot below shows a good agreement to literature for all the three models considered. The validation process is automated in the script `velocity_validation.sh`, which runs the simulation for all three models and generates a plot with quoted errors in the scripts folder. On the GPU, this takes approximately 1 minute.
+Since streaming, boundary conditions and collisions are combined into a single function/kernel for performance reasons, unittests are not possible. Instead, the implementation is validated against a numerical solution in literature [5]. The plot below shows a good agreement to literature for all the three models considered. The validation process is automated in the script `velocity_validation.sh`, which runs the simulation for all three models and generates a velocity plot with quoted errors in the scripts folder. On the GPU, this takes approximately 1 minute.
 
 
 ### Lid-driven cavity flow
@@ -114,6 +114,9 @@ Nx = Ny = 512
 Re = 1000
 Iterations = 300 000
 
+
+#### Streamlines generated with Paraview
+<img src="https://github.com/acse-2020/acse2020-acse9-finalreport-acse-jrt3817/blob/main/figures/streamlines_Re1000.png" width="300">
 
 #### X-velocity along vertical centerlilne 
 <img src="https://github.com/acse-2020/acse2020-acse9-finalreport-acse-jrt3817/blob/main/figures/velocity_validation_xvel.png" width="300">
